@@ -83,3 +83,6 @@ dist/
 
 # OS
 Thumbs.db
+
+# Chroma DB
+backend/data/chroma/
