@@ -3,6 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
 import os
 from dotenv import load_dotenv
+import logging
+
+# Konfiguracja logowania
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -14,9 +19,17 @@ app = FastAPI(
 
 # Konfiguracja CORS
 allowed_origins = [
-    os.getenv("FRONTEND_URL", "http://localhost:3000"),  # URL frontendu
-    "https://agent-ai-spices.vercel.app"  # URL produkcyjny
+    "http://localhost:3000",  # standardowy port dev
+    "http://localhost:3005",  # alternatywny port dev
+    "https://agent-ai-spices.vercel.app",  # produkcyjny URL
+    "https://agent-afxbyggz0-kamils-projects-887b8705.vercel.app",  # nowy produkcyjny URL
+    os.getenv("FRONTEND_URL", "")  # URL z zmiennej środowiskowej
 ]
+
+# Usuń puste wartości i duplikaty
+allowed_origins = list(set(filter(None, allowed_origins)))
+
+logger.info(f"Configured CORS allowed origins: {allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,7 +37,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Dodanie routera API
-app.include_router(api_router, prefix="/api") 
+app.include_router(api_router, prefix="/api")
+
+@app.get("/")
+async def root():
+    return {"message": "Agent AI API is running"} 
