@@ -23,7 +23,10 @@ allowed_origins = [
     "http://localhost:3001",  # alternatywny port dev
     "http://localhost:3005",  # alternatywny port dev
     "https://agent-ai-spices.vercel.app",  # produkcyjny URL
-    "https://agent-afxbyggz0-kamils-projects-887b8705.vercel.app",  # nowy produkcyjny URL
+    "https://agent-ai-git-staging-kamils-projects-887b8705.vercel.app",  # URL stagingowy Vercel
+    "https://agent-ai-git-main-kamils-projects-887b8705.vercel.app",  # URL główny Vercel
+    "https://agent-ai-staging.up.railway.app",  # URL stagingowy Railway
+    "https://agent-ai-production.up.railway.app",  # URL produkcyjny Railway
     os.getenv("FRONTEND_URL", "")  # URL z zmiennej środowiskowej
 ]
 
