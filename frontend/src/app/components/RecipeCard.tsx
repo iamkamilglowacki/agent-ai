@@ -1,13 +1,19 @@
 'use client';
 
+interface Recipe {
+    title: string;
+    ingredients: string[];
+    steps: string[];
+}
+
 interface RecipeCardProps {
     recipe: string;
 }
 
 export default function RecipeCard({ recipe }: RecipeCardProps) {
     // Funkcja do generowania trzech różnych przepisów na podstawie składników
-    const generateRecipes = (baseRecipe: string) => {
-        const recipes = [
+    const generateRecipes = (baseRecipe: string): Recipe[] => {
+        const recipes: Recipe[] = [
             {
                 title: "Sałatka owocowa z czekoladą",
                 ingredients: [
@@ -66,7 +72,7 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
         return recipes;
     };
 
-    const renderRecipe = (recipe: any) => {
+    const renderRecipe = (recipe: Recipe) => {
         return (
             <div className="bg-white rounded-2xl p-8 hover:shadow-md transition-shadow duration-200">
                 <h2 className="text-3xl font-medium text-green-700 mb-8">
