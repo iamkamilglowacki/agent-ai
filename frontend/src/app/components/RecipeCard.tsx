@@ -1,76 +1,56 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { getApiUrl } from '@/config/api';
+import { SpiceRecommendation } from '../../components/SpiceRecommendation';
+import { Spice } from '../../types/spices';
+
 interface Recipe {
     title: string;
     ingredients: string[];
     steps: string[];
+    spice_recommendations: {
+        recipe_blend?: Spice;
+    };
 }
 
 interface RecipeCardProps {
     recipe: string;
 }
 
-export default function RecipeCard({ recipe }: RecipeCardProps) {
-    // Funkcja do generowania trzech różnych przepisów na podstawie składników
-    const generateRecipes = (baseRecipe: string): Recipe[] => {
-        const recipes: Recipe[] = [
-            {
-                title: "Sałatka owocowa z czekoladą",
-                ingredients: [
-                    "2 jabłka",
-                    "1 pomarańcza",
-                    "1 banan",
-                    "Kilkanaście kostek czekolady"
-                ],
-                steps: [
-                    "Obierz jabłka i usuń gniazda nasienne, następnie pokrój je w małe kawałki.",
-                    "Banan obierz i pokrój w plasterki.",
-                    "Pomarańczę obierz, podziel na cząstki, a następnie pokrój je na mniejsze kawałki.",
-                    "Wszystkie owoce umieść w misce.",
-                    "Czekoladę rozpuść w kąpieli wodnej lub w mikrofalówce.",
-                    "Gdy czekolada będzie płynna, polej nią owoce.",
-                    "Delikatnie wymieszaj, aby wszystkie kawałki były pokryte czekoladą."
-                ]
-            },
-            {
-                title: "Fondue owocowe",
-                ingredients: [
-                    "2 jabłka",
-                    "1 pomarańcza",
-                    "1 banan",
-                    "200g czekolady deserowej"
-                ],
-                steps: [
-                    "Owoce umyj i pokrój w większe kawałki.",
-                    "Czekoladę rozpuść w naczyniu do fondue.",
-                    "Utrzymuj czekoladę w stanie płynnym.",
-                    "Nabijaj kawałki owoców na szpilki i maczaj w czekoladzie.",
-                    "Odłóż na talerz do zastygnięcia.",
-                    "Podawaj od razu jako deser."
-                ]
-            },
-            {
-                title: "Mus czekoladowo-owocowy",
-                ingredients: [
-                    "2 jabłka",
-                    "1 pomarańcza",
-                    "1 banan",
-                    "150g czekolady mlecznej"
-                ],
-                steps: [
-                    "Owoce obierz i pokrój w drobne kawałki.",
-                    "Czekoladę rozpuść w kąpieli wodnej.",
-                    "Zmiksuj owoce na gładką masę.",
-                    "Delikatnie połącz masę owocową z płynną czekoladą.",
-                    "Przełóż do pucharków.",
-                    "Schłodź w lodówce przez 2 godziny.",
-                    "Udekoruj świeżymi owocami przed podaniem."
-                ]
-            }
-        ];
+export default function RecipeCard({ recipe: initialRecipe }: RecipeCardProps) {
+    const [recipes, setRecipes] = useState<Recipe[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-        return recipes;
-    };
+    useEffect(() => {
+        const fetchRecipe = async () => {
+            try {
+                setLoading(true);
+                const response = await fetch(`${getApiUrl()}/api/recipes/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: initialRecipe })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Nie udało się pobrać przepisu');
+                }
+
+                const data = await response.json();
+                setRecipes([data.recipe]);
+            } catch (err) {
+                setError('Wystąpił błąd podczas ładowania przepisu');
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchRecipe();
+    }, [initialRecipe]);
 
     const renderRecipe = (recipe: Recipe) => {
         return (
@@ -81,13 +61,25 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
                 
                 <div className="mb-8">
                     <h3 className="text-xl font-medium text-gray-900 mb-4">Składniki:</h3>
-                    <ul className="space-y-3">
-                        {recipe.ingredients.map((ingredient: string, idx: number) => (
-                            <li key={idx} className="flex items-center text-gray-700">
-                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-3"></span>
-                                {ingredient}
-                            </li>
-                        ))}
+                    <ul className="space-y-4">
+                        {recipe.ingredients.map((ingredient: string, idx: number) => {
+                            // Sprawdź, czy składnik to mieszanka przypraw
+                            const isSpiceBlend = ingredient.startsWith('Mieszanka przypraw:');
+                            if (isSpiceBlend && recipe.spice_recommendations?.recipe_blend) {
+                                return (
+                                    <li key={idx} className="flex flex-col space-y-2">
+                                        <SpiceRecommendation spice={recipe.spice_recommendations.recipe_blend} />
+                                    </li>
+                                );
+                            }
+                            
+                            return (
+                                <li key={idx} className="flex items-center text-gray-700">
+                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-3"></span>
+                                    {ingredient}
+                                </li>
+                            );
+                        })}
                     </ul>
                 </div>
 
@@ -110,11 +102,17 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
         );
     };
 
-    const recipes = generateRecipes(recipe);
+    if (loading) {
+        return <div className="text-center">Ładowanie przepisu...</div>;
+    }
+
+    if (error) {
+        return <div className="text-red-600">{error}</div>;
+    }
 
     return (
         <div className="w-full max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 gap-8">
                 {recipes.map((recipe, index) => (
                     <div key={index}>
                         {renderRecipe(recipe)}

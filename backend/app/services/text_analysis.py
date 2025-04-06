@@ -1,10 +1,29 @@
 from app.core.openai_config import client, SYSTEM_PROMPT
 from openai.types.chat import ChatCompletion
-from typing import Optional, List
+from typing import Optional, List, Dict
 from fastapi import HTTPException
 import logging
+from app.services.spice_mapping import spice_mapping_service
+import re
 
 logger = logging.getLogger(__name__)
+
+async def extract_ingredients_from_response(response: str) -> List[str]:
+    """
+    Wyciąga listę składników z odpowiedzi AI
+    """
+    ingredients = []
+    # Szukaj sekcji składników
+    ingredients_section = re.search(r"Składniki:?\n(.*?)(?:\n\n|\n[A-Z])", response, re.DOTALL)
+    if ingredients_section:
+        # Podziel na linie i wyczyść
+        ingredients_lines = ingredients_section.group(1).strip().split('\n')
+        for line in ingredients_lines:
+            # Usuń punktory i białe znaki
+            ingredient = re.sub(r'^[-•*]\s*', '', line.strip())
+            if ingredient:
+                ingredients.append(ingredient)
+    return ingredients
 
 async def analyze_text_query(
     query: str,
@@ -40,9 +59,21 @@ async def analyze_text_query(
             logger.error(f"Błąd podczas komunikacji z OpenAI API: {str(api_error)}")
             raise HTTPException(status_code=500, detail=f"Błąd podczas komunikacji z OpenAI: {str(api_error)}")
 
+        # Wyciągnij składniki z odpowiedzi
+        recipe_text = response.choices[0].message.content
+        ingredients = await extract_ingredients_from_response(recipe_text)
+
+        # Pobierz rekomendacje przypraw dla każdego składnika
+        spice_recommendations: Dict[str, Dict] = {}
+        for ingredient in ingredients:
+            recommendation = await spice_mapping_service.get_spice_recommendation(ingredient)
+            if recommendation:
+                spice_recommendations[ingredient] = recommendation
+
         # Zwróć odpowiedź
         return {
-            "recipe": response.choices[0].message.content,
+            "recipe": recipe_text,
+            "spice_recommendations": spice_recommendations,
             "tokens_used": {
                 "prompt_tokens": response.usage.prompt_tokens,
                 "completion_tokens": response.usage.completion_tokens,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import { API_URL } from '@/config/api';
 
 interface ImageInputProps {
     onResponse: (response: string) => void;
@@ -23,7 +24,7 @@ export default function ImageInput({ onResponse, onError, onImageUpload }: Image
             const formData = new FormData();
             formData.append('file', file);
 
-            const response = await fetch('http://localhost:8000/api/analyze/image', {
+            const response = await fetch(`${API_URL}/api/analyze/image`, {
                 method: 'POST',
                 body: formData,
             });

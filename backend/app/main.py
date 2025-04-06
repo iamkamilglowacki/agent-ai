@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
+from app.routers import recipes
+from app.routers import spices
 import os
 from dotenv import load_dotenv
 import logging
@@ -46,6 +48,8 @@ app.add_middleware(
 
 # Dodanie routera API
 app.include_router(api_router, prefix="/api")
+app.include_router(recipes.router, prefix="/api")
+app.include_router(spices.router, prefix="/api")
 
 @app.get("/")
 async def root():
