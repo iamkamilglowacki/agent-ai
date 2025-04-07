@@ -26,26 +26,30 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
         setError(null);
         
         try {
+            console.log('Rozpoczynam dodawanie do koszyka:', spice.id);
             const formData = new FormData();
-            formData.append('add-to-cart', spice.id.toString());
+            formData.append('productId', spice.id.toString());
             formData.append('quantity', '1');
             
-            const response = await fetch(`${SHOP_URL}/`, {
+            console.log('Wysyłam żądanie POST do API proxy');
+            const response = await fetch('/api/add-to-cart', {
                 method: 'POST',
                 body: formData,
-                credentials: 'include',
-                headers: {
-                    'Accept': 'application/json',
-                }
             });
 
+            console.log('Odpowiedź:', response.status, response.statusText);
+            const responseData = await response.json();
+            console.log('Dane odpowiedzi:', responseData);
+
             if (!response.ok) {
-                throw new Error('Nie udało się dodać produktu do koszyka');
+                throw new Error(responseData.error || `Nie udało się dodać produktu do koszyka. Status: ${response.status}`);
             }
 
             setIsAdded(true);
+            console.log('Produkt dodany do koszyka');
             setTimeout(() => setIsAdded(false), 2000);
         } catch (err) {
+            console.error('Błąd podczas dodawania do koszyka:', err);
             setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas dodawania do koszyka');
         } finally {
             setLoading(false);
