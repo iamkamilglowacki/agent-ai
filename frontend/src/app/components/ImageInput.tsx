@@ -127,13 +127,14 @@ export default function ImageInput({ onResponse, onError, onImageUpload, setIsLo
             const formData = new FormData();
             formData.append('file', optimizedFile);
 
-            const apiUrl = new URL(API_ENDPOINTS.ANALYZE_IMAGE);
             console.log('Przygotowuję żądanie do API:', {
-                originalUrl: API_ENDPOINTS.ANALYZE_IMAGE,
-                parsedUrl: apiUrl.toString(),
-                protocol: apiUrl.protocol,
-                hostname: apiUrl.hostname,
-                pathname: apiUrl.pathname
+                url: API_ENDPOINTS.ANALYZE_IMAGE,
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/x-ndjson',
+                },
+                mode: 'cors',
+                credentials: 'include'
             });
 
             // Wysyłanie z timeout'em dla lepszej obsługi błędów połączenia
@@ -141,7 +142,7 @@ export default function ImageInput({ onResponse, onError, onImageUpload, setIsLo
             const timeoutId = setTimeout(() => controller.abort(), 30000);
             
             try {
-                const response = await fetch(apiUrl.toString(), {
+                const response = await fetch(API_ENDPOINTS.ANALYZE_IMAGE, {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/x-ndjson',
