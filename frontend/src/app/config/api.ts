@@ -11,6 +11,7 @@ function detectEnvironment() {
         }
         // Sprawdź produkcję na podstawie URL
         if (window.location.hostname === 'smakosz.flavorinthejar.com' || 
+            window.location.hostname.includes('flavorinthejar.com') ||
             window.location.hostname.includes('vercel.app')) {
             return 'production';
         }

@@ -22,6 +22,9 @@ app = FastAPI(
 # Konfiguracja CORS
 allowed_origins = [
     "https://smakosz.flavorinthejar.com",  # Subdomena smakosz (HTTPS)
+    "http://smakosz.flavorinthejar.com",   # Subdomena smakosz (HTTP)
+    "https://flavorinthejar.com",          # Główna domena (HTTPS)
+    "http://flavorinthejar.com",           # Główna domena (HTTP)
     "http://localhost:3000",  # standardowy port dev
     "http://localhost:3001",  # alternatywny port dev
     "http://localhost:3005",  # alternatywny port dev
@@ -31,6 +34,7 @@ allowed_origins = [
     "https://agent-ai-spices.vercel.app",  # produkcyjny URL Vercel
     "https://agent-ai-git-staging-kamils-projects-887b8705.vercel.app",  # URL stagingowy Vercel
     "https://agent-ai-git-main-kamils-projects-887b8705.vercel.app",  # URL główny Vercel
+    "https://agent-ai.up.railway.app",     # URL produkcyjny Railway
     "https://agent-ai-staging.up.railway.app",  # URL stagingowy Railway
     "https://agent-ai-production.up.railway.app",  # URL produkcyjny Railway
 ]

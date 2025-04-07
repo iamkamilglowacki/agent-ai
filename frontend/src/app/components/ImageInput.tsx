@@ -141,7 +141,8 @@ export default function ImageInput({ onResponse, onError, onImageUpload, setIsLo
                     },
                     body: formData,
                     signal: controller.signal,
-                    credentials: 'include' // Dodajemy credentials dla CORS
+                    credentials: 'include',
+                    mode: 'cors' // Wymuszamy tryb CORS
                 });
 
                 clearTimeout(timeoutId);
@@ -151,13 +152,16 @@ export default function ImageInput({ onResponse, onError, onImageUpload, setIsLo
                     console.error('Błąd odpowiedzi API:', { 
                         status: response.status, 
                         statusText: response.statusText,
-                        body: errorText
+                        body: errorText,
+                        url: API_ENDPOINTS.ANALYZE_IMAGE // Logujemy URL dla debugowania
                     });
                     
                     if (response.status === 413) {
                         throw new Error('Plik jest zbyt duży dla serwera. Spróbuj z mniejszym zdjęciem.');
                     } else if (response.status === 415) {
                         throw new Error('Format pliku nie jest obsługiwany. Użyj JPG, PNG lub WebP.');
+                    } else if (response.status === 405) {
+                        throw new Error('Metoda nie jest dozwolona. Skontaktuj się z administratorem.');
                     } else if (response.status >= 500) {
                         throw new Error(`Błąd serwera podczas analizy zdjęcia (${response.status}). Spróbuj ponownie później.`);
                     } else {
