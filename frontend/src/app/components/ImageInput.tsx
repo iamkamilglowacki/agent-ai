@@ -1,9 +1,13 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { API_URL } from '@/config/api';
+// Unikamy importowania z @/config/api, zamiast tego importujemy bezpośrednio stały adres
+// import { API_URL } from '@/config/api';
 import { getSpiceRecommendationByIngredients } from '@/services/spiceRecommendations';
 import { Recipe } from '@/types/recipe';
+
+// Stały adres API
+const API_URL = 'https://agent-ai.up.railway.app';
 
 interface ImageInputProps {
     onResponse: (response: { recipes: Recipe[] }, isPartial: boolean) => void;
@@ -101,7 +105,9 @@ export default function ImageInput({ onResponse, onError, onImageUpload, setIsLo
             const formData = new FormData();
             formData.append('file', optimizedFile);
 
-            const response = await fetch(`${API_URL}/api/analyze/image`, {
+            // Bezpośrednie użycie poprawnego adresu API zamiast zmiennej z konfiguracji
+            const apiUrl = 'https://agent-ai.up.railway.app';
+            const response = await fetch(`${apiUrl}/api/analyze/image`, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/x-ndjson',

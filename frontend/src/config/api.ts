@@ -3,7 +3,7 @@ export function getApiUrl(): string {
         return 'https://agent-ai-staging.up.railway.app';
     }
     return process.env.NODE_ENV === 'production'
-        ? 'https://agent-ai-production.up.railway.app'
+        ? 'https://agent-ai.up.railway.app'
         : 'http://localhost:8000';
 }
 
