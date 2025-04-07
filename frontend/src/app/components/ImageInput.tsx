@@ -6,9 +6,10 @@ import { getSpiceRecommendationByIngredients } from '@/services/spiceRecommendat
 import { Recipe } from '@/types/recipe';
 
 interface ImageInputProps {
-    onResponse: (response: { recipes: Recipe[] }) => void;
+    onResponse: (response: { recipes: Recipe[] }, isPartial: boolean) => void;
     onError: (error: string) => void;
     onImageUpload: (imageUrl: string) => void;
+    setIsLoading: (isLoading: boolean) => void;
 }
 
 const optimizeImage = async (file: File): Promise<File> => {
@@ -74,7 +75,7 @@ const optimizeImage = async (file: File): Promise<File> => {
     });
 };
 
-export default function ImageInput({ onResponse, onError, onImageUpload }: ImageInputProps) {
+export default function ImageInput({ onResponse, onError, onImageUpload, setIsLoading }: ImageInputProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [progress, setProgress] = useState<number>(0);
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -85,6 +86,7 @@ export default function ImageInput({ onResponse, onError, onImageUpload }: Image
 
         try {
             setIsProcessing(true);
+            setIsLoading(true);
             setProgress(10); // Rozpoczęcie optymalizacji
 
             // Optymalizuj obraz przed wysłaniem
@@ -125,7 +127,16 @@ export default function ImageInput({ onResponse, onError, onImageUpload }: Image
 
             while (true) {
                 const { done, value } = await reader.read();
-                if (done) break;
+                if (done) {
+                    if (!finalResponseReceived) {
+                        // Jeśli nie otrzymaliśmy ostatecznej odpowiedzi, a strumień się zakończył
+                        setProgress(100);
+                        setIsProcessing(false);
+                        setIsLoading(false);
+                        break;
+                    }
+                    break;
+                }
                 
                 // Dodaj nowe dane do bufora
                 buffer += decoder.decode(value, { stream: true });
@@ -151,20 +162,27 @@ export default function ImageInput({ onResponse, onError, onImageUpload }: Image
                                     try {
                                         // Najpierw spróbuj potraktować analizę jako JSON
                                         const recipeObj = JSON.parse(fullAnalysis);
-                                        onResponse(recipeObj);
+                                        onResponse(recipeObj, false); // Finalna odpowiedź
+                                        setProgress(100);
+                                        setIsProcessing(false);
+                                        setIsLoading(false);
                                     } catch (e) {
                                         // Jeśli nie jest JSON, przekaż jako tekst
-                                        onResponse(formatTextResponse(fullAnalysis));
+                                        onResponse(formatTextResponse(fullAnalysis), false); // Finalna odpowiedź
+                                        setProgress(100);
+                                        setIsProcessing(false);
+                                        setIsLoading(false);
                                     }
                                 } else {
-                                    // Dla częściowych odpowiedzi, aktualizuj tekst
-                                    onResponse(formatTextResponse(fullAnalysis));
+                                    // Dla częściowych odpowiedzi, aktualizuj tekst ale zachowaj stan ładowania
+                                    onResponse(formatTextResponse(fullAnalysis), true); // Częściowa odpowiedź
+                                    setProgress(80 + (Math.random() * 10));
                                 }
                                 
-                                setProgress(80 + (Math.random() * 10));
                             }
                         } catch (e) {
                             console.error('Błąd parsowania JSON:', e);
+                            // W przypadku błędu parsowania, zachowujemy stan ładowania
                         }
                     }
                 }
@@ -182,10 +200,16 @@ export default function ImageInput({ onResponse, onError, onImageUpload }: Image
                         try {
                             // Najpierw spróbuj potraktować analizę jako JSON
                             const recipeObj = JSON.parse(fullAnalysis);
-                            onResponse(recipeObj);
+                            onResponse(recipeObj, false);
+                            setProgress(100);
+                            setIsProcessing(false);
+                            setIsLoading(false);
                         } catch (e) {
                             // Jeśli nie jest JSON, przekaż jako tekst
-                            onResponse(formatTextResponse(fullAnalysis));
+                            onResponse(formatTextResponse(fullAnalysis), false);
+                            setProgress(100);
+                            setIsProcessing(false);
+                            setIsLoading(false);
                         }
                     }
                 } catch (e) {
@@ -193,11 +217,16 @@ export default function ImageInput({ onResponse, onError, onImageUpload }: Image
                 }
             }
 
-            setProgress(100);
-            setIsProcessing(false);
+            // Resetujemy stany tylko jeśli otrzymaliśmy ostateczną odpowiedź
+            if (finalResponseReceived) {
+                setProgress(100);
+                setIsProcessing(false);
+                setIsLoading(false);
+            }
         } catch (error) {
-            onError(error instanceof Error ? error.message : 'Wystąpił nieznany błąd');
             setIsProcessing(false);
+            setIsLoading(false);
+            onError(error instanceof Error ? error.message : 'Wystąpił nieznany błąd');
         }
     };
 

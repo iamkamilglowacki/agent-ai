@@ -6,16 +6,23 @@ import { getSpiceRecommendationByIngredients } from '@/services/spiceRecommendat
 import { Recipe } from '@/types/recipe';
 
 interface VoiceInputProps {
-    onResponse: (data: { recipes: Recipe[] }) => void;
+    onResponse: (data: { recipes: Recipe[] }, isPartial: boolean) => void;
     onError: (error: string) => void;
+    setIsLoading: (isLoading: boolean) => void;
 }
 
-export default function VoiceInput({ onResponse, onError }: VoiceInputProps) {
+export default function VoiceInput({ onResponse, onError, setIsLoading }: VoiceInputProps) {
     const [isRecording, setIsRecording] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
     const [isMicrophoneAvailable, setIsMicrophoneAvailable] = useState<boolean | null>(null);
+    const [isLoading, setLocalIsLoading] = useState(false);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
+
+    // Synchronizuj lokalny i globalny stan ładowania
+    const updateLoadingState = (state: boolean) => {
+        setLocalIsLoading(state);
+        setIsLoading(state);
+    };
 
     useEffect(() => {
         let isMounted = true;
@@ -148,7 +155,7 @@ export default function VoiceInput({ onResponse, onError }: VoiceInputProps) {
     };
 
     const handleSubmit = async (audioBlob: Blob) => {
-        setIsLoading(true);
+        updateLoadingState(true);
         try {
             const formData = new FormData();
             
@@ -215,11 +222,11 @@ export default function VoiceInput({ onResponse, onError }: VoiceInputProps) {
             }
 
             const data = await response.json();
-            onResponse(data);
+            onResponse(data, false);
         } catch (error) {
             onError(error instanceof Error ? error.message : 'Wystąpił nieznany błąd');
         } finally {
-            setIsLoading(false);
+            updateLoadingState(false);
         }
     };
 
@@ -231,13 +238,13 @@ export default function VoiceInput({ onResponse, onError }: VoiceInputProps) {
     };
 
     const handleError = () => {
-        setIsLoading(false);
         setIsRecording(false);
+        updateLoadingState(false);
         if (mediaRecorderRef.current) {
             try {
-                mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+                mediaRecorderRef.current.stop();
             } catch (error) {
-                console.error('Błąd podczas czyszczenia strumienia:', error);
+                console.error('Błąd podczas zatrzymywania nagrywania w handleError:', error);
             }
         }
     };

@@ -5,13 +5,13 @@ import { API_ENDPOINTS } from '../config/api';
 import { Recipe } from '@/types/recipe';
 
 interface ChatInputProps {
-    onResponse: (data: { recipes: Recipe[] }) => void;
+    onResponse: (data: { recipes: Recipe[] }, isPartial: boolean) => void;
     onError: (error: string) => void;
+    setIsLoading: (isLoading: boolean) => void;
 }
 
-export default function ChatInput({ onResponse, onError }: ChatInputProps) {
+export default function ChatInput({ onResponse, onError, setIsLoading }: ChatInputProps) {
     const [query, setQuery] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,11 +36,10 @@ export default function ChatInput({ onResponse, onError }: ChatInputProps) {
             }
 
             const data = await response.json();
-            onResponse(data);
+            onResponse(data, false);
             setQuery('');
         } catch (error) {
             onError(error instanceof Error ? error.message : 'Wystąpił nieznany błąd');
-        } finally {
             setIsLoading(false);
         }
     };
@@ -54,14 +53,13 @@ export default function ChatInput({ onResponse, onError }: ChatInputProps) {
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Opisz, jakie danie chcesz przygotować..."
                     className="flex-1 p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    disabled={isLoading}
                 />
                 <button
                     type="submit"
-                    disabled={isLoading || !query.trim()}
+                    disabled={!query.trim()}
                     className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-400"
                 >
-                    {isLoading ? 'Szukam...' : 'Wyślij'}
+                    Wyślij
                 </button>
             </div>
         </form>
