@@ -25,75 +25,11 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
         setLoading(true);
         setError(null);
         
-        // Tworzymy XMLHttpRequest, które lepiej radzi sobie z CORS
-        const xhr = new XMLHttpRequest();
-        
-        // Ustawiamy withCredentials na true, aby wysyłać ciasteczka
-        xhr.withCredentials = true;
-        
-        xhr.open('POST', `${SHOP_URL}/?wc-ajax=add_to_cart`, true);
-        
-        // Ustawiamy odpowiednie nagłówki
-        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        xhr.setRequestHeader('Accept', 'application/json');
-        
-        // Nasłuchujemy na zmiany stanu
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                setLoading(false);
-                
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        
-                        if (response.success) {
-                            // Sukces - produkt dodany
-                            setIsAdded(true);
-                            setTimeout(() => setIsAdded(false), 2000);
-                            
-                            // Aktualizacja liczby produktów w koszyku, jeśli dostępna
-                            if (response.cart_count) {
-                                setCartCount(response.cart_count);
-                            }
-                        } else if (response.error) {
-                            // Błąd zwrócony przez WooCommerce
-                            console.error('Błąd WooCommerce:', response.error);
-                            setError(`Błąd: ${response.error}`);
-                        } else {
-                            // Zakładamy sukces, jeśli nie ma informacji o błędzie
-                            setIsAdded(true);
-                            setTimeout(() => setIsAdded(false), 2000);
-                        }
-                    } catch (e) {
-                        console.error('Błąd parsowania odpowiedzi:', e, xhr.responseText);
-                        setError('Wystąpił problem z dodaniem produktu do koszyka.');
-                    }
-                } else {
-                    console.error('Błąd HTTP:', xhr.status);
-                    setError(`Błąd połączenia: ${xhr.status}`);
-                }
-            }
-        };
-        
-        // Obsługa błędów sieciowych
-        xhr.onerror = function() {
-            console.error('Błąd sieciowy podczas dodawania do koszyka');
-            setLoading(false);
-            setError('Wystąpił problem z połączeniem do sklepu.');
-        };
-        
-        // Przygotowanie danych do wysłania
-        const data = new URLSearchParams({
-            'product_id': spice.id.toString(),
-            'quantity': '1',
-            'add-to-cart': spice.id.toString(),
-            '_wpnonce': '', // Jeśli mamy nonce, warto je dodać
-            'woocommerce-add-to-cart-nonce': '', // Alternatywny format nonce
-            'add_to_cart_via_ajax': '1' // Specjalny parametr dla niektórych motywów WooCommerce
-        }).toString();
-        
-        // Wysłanie żądania
-        xhr.send(data);
+        // Na lokalnym środowisku używamy przekierowania
+        window.location.href = `https://flavorinthejar.com/?add-to-cart=${spice.id}`;
+        setIsAdded(true);
+        setLoading(false);
+        setTimeout(() => setIsAdded(false), 2000);
     };
 
     return (

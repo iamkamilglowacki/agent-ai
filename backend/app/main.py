@@ -25,6 +25,9 @@ allowed_origins = [
     "http://localhost:3000",  # standardowy port dev
     "http://localhost:3001",  # alternatywny port dev
     "http://localhost:3005",  # alternatywny port dev
+    "http://127.0.0.1:3000",  # localhost jako IP
+    "http://127.0.0.1:3001",  # localhost jako IP
+    "http://127.0.0.1:3005",  # localhost jako IP
     "https://agent-ai-spices.vercel.app",  # produkcyjny URL Vercel
     "https://agent-ai-git-staging-kamils-projects-887b8705.vercel.app",  # URL stagingowy Vercel
     "https://agent-ai-git-main-kamils-projects-887b8705.vercel.app",  # URL główny Vercel
@@ -49,7 +52,7 @@ logger.info(f"Configured CORS allowed origins: {allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,  # Używamy zdefiniowanej listy origins zamiast wildcard
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -12,7 +12,9 @@ interface RecipeCardProps {
 export default function RecipeCard({ recipe }: RecipeCardProps) {
     const [isAdded, setIsAdded] = useState(false);
 
-    const handleAddToCart = () => {
+    const handleAddToCart = (url: string) => {
+        // Na lokalnym środowisku używamy przekierowania
+        window.location.href = `https://flavorinthejar.com${url}`;
         setIsAdded(true);
         setTimeout(() => setIsAdded(false), 2000);
     };
@@ -48,8 +50,6 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
                                 </div>
                                 <a
                                     href={spiceBlend.add_to_cart_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
                                     className={`ml-4 px-4 py-2 rounded-lg transition-all duration-200 ${
                                         isAdded
                                             ? 'bg-green-100 text-green-700'
@@ -57,8 +57,7 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
                                     }`}
                                     onClick={(e) => {
                                         e.preventDefault();
-                                        handleAddToCart();
-                                        window.open(spiceBlend.add_to_cart_url, '_blank');
+                                        handleAddToCart(spiceBlend.add_to_cart_url);
                                     }}
                                 >
                                     {isAdded ? 'Dodano!' : 'Dodaj do koszyka'}

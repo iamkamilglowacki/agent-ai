@@ -96,6 +96,13 @@ async def analyze_image(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.head("/analyze/image")
+async def check_image_endpoint():
+    """
+    Endpoint do sprawdzania dostępności usługi analizy obrazów
+    """
+    return {"status": "available"}
+
 @router.get("/recipes/search")
 async def search_recipes(
     query: str,

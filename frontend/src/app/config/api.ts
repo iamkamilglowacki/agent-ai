@@ -25,25 +25,35 @@ function detectEnvironment() {
 export function getApiUrl(): string {
     // Priorytet 1: Zdefiniowana zmienna środowiskowa
     if (process.env.NEXT_PUBLIC_API_URL) {
+        console.log('Using API URL from env:', process.env.NEXT_PUBLIC_API_URL);
         return process.env.NEXT_PUBLIC_API_URL;
     }
 
     // Priorytet 2: Wykrywanie na podstawie środowiska
     const environment = detectEnvironment();
+    console.log('Detected environment:', environment);
     
+    let apiUrl;
     switch (environment) {
         case 'production':
-            return 'https://agent-ai.up.railway.app';
+            apiUrl = 'https://agent-ai.up.railway.app';
+            break;
         case 'staging':
-            return 'https://agent-ai-staging.up.railway.app';
+            apiUrl = 'https://agent-ai-staging.up.railway.app';
+            break;
         case 'development':
         default:
-            return 'http://localhost:8000';
+            apiUrl = 'http://localhost:8000';
+            break;
     }
+    
+    console.log('Using API URL:', apiUrl);
+    return apiUrl;
 }
 
 // Eksportujemy URL API
 export const API_URL = getApiUrl();
+console.log('Configured API URL:', API_URL);
 
 // Eksportujemy końcówki API
 export const API_ENDPOINTS = {
@@ -52,4 +62,6 @@ export const API_ENDPOINTS = {
     ANALYZE_IMAGE: `${API_URL}/api/analyze/image`,
     SEARCH_RECIPES: `${API_URL}/api/recipes/search`,
     GET_SPICES: `${API_URL}/api/spices`,
-}; 
+};
+
+console.log('Configured API endpoints:', API_ENDPOINTS); 
