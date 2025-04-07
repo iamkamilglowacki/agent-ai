@@ -13,82 +13,21 @@ interface WooCommerceProductProps {
     };
 }
 
-// Interfejs dla globalnego obiektu WooCommerce
-interface WCWindow extends Window {
-    wc_add_to_cart_params?: {
-        wc_ajax_nonce: string;
-    };
-}
-
 const SHOP_URL = 'https://flavorinthejar.com';
 
 export default function WooCommerceProduct({ product }: WooCommerceProductProps) {
     const [loading, setLoading] = useState(false);
     const [added, setAdded] = useState(false);
 
-    const handleAddToCart = async (e: React.MouseEvent) => {
+    const handleAddToCart = (e: React.MouseEvent) => {
         e.preventDefault();
         setLoading(true);
         
-        try {
-            // Używamy nonce jeśli jest dostępny (zabezpieczenie WooCommerce)
-            const nonce = ((window as WCWindow).wc_add_to_cart_params?.wc_ajax_nonce || '');
-            
-            // Dodajemy produkt do koszyka za pomocą WC AJAX API
-            const response = await fetch(`${SHOP_URL}/?wc-ajax=add_to_cart`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Accept': 'application/json',
-                    'Origin': 'https://smakosz.flavorinthejar.com',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: new URLSearchParams({
-                    'product_id': product.id.toString(),
-                    'quantity': '1',
-                    'add-to-cart': product.id.toString(),
-                    'security': nonce
-                }).toString(),
-                credentials: 'include',
-                mode: 'cors',
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                // Sukces - produkt dodany
-                setAdded(true);
-                // Pokazujemy powiadomienie
-                showNotification(`${product.name} został dodany do koszyka`);
-            } else if (data.error) {
-                // Wyświetlamy błąd z odpowiedzi
-                console.error('Błąd WooCommerce:', data.error);
-                alert(data.error);
-            } else {
-                // Fallback - jeśli nie ma danych o sukcesie lub błędzie, zakładamy sukces
-                setAdded(true);
-                showNotification(`${product.name} został dodany do koszyka`);
-            }
-        } catch (error) {
-            console.error('Błąd podczas dodawania do koszyka:', error);
-            // Spróbujmy fallback - przekierowanie do URL dodania do koszyka
-            redirectToAddToCart();
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Funkcja pokazująca powiadomienie z opcją przejścia do koszyka
-    const showNotification = (message: string) => {
-        const confirmed = window.confirm(`${message}. Czy chcesz przejść do koszyka?`);
-        if (confirmed) {
-            window.location.href = `${SHOP_URL}/cart/`;
-        }
-    };
-
-    // Funkcja przekierowująca do URL dodania do koszyka (fallback)
-    const redirectToAddToCart = () => {
-        window.location.href = `${SHOP_URL}/?add-to-cart=${product.id}`;
+        // Bezpośrednie przekierowanie do adresu dodania produktu
+        // Dla lepszego UX, najpierw pokazujemy stan "Dodawanie..."
+        setTimeout(() => {
+            window.location.href = `${SHOP_URL}/?add-to-cart=${product.id}`;
+        }, 500);
     };
 
     return (

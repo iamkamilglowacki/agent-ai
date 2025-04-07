@@ -7,74 +7,21 @@ interface SpiceRecommendationProps {
     spice: Spice;
 }
 
-// Interfejs dla globalnego obiektu WooCommerce
-interface WCWindow extends Window {
-    wc_add_to_cart_params?: {
-        wc_ajax_nonce: string;
-    };
-}
-
 const SHOP_URL = 'https://flavorinthejar.com';
 
 export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice }) => {
     const [loading, setLoading] = useState(false);
     const [isAdded, setIsAdded] = useState(false);
 
-    const handleAddToCart = async (e: React.MouseEvent) => {
+    const handleAddToCart = (e: React.MouseEvent) => {
         e.preventDefault();
         setLoading(true);
         
-        try {
-            // Używamy nonce jeśli jest dostępny (zabezpieczenie WooCommerce)
-            const nonce = ((window as WCWindow).wc_add_to_cart_params?.wc_ajax_nonce || '');
-            
-            // Dodajemy produkt do koszyka za pomocą WC AJAX API
-            const response = await fetch(`${SHOP_URL}/?wc-ajax=add_to_cart`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Accept': 'application/json',
-                    'Origin': 'https://smakosz.flavorinthejar.com',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: new URLSearchParams({
-                    'product_id': spice.id.toString(),
-                    'quantity': '1',
-                    'add-to-cart': spice.id.toString(),
-                    'security': nonce
-                }).toString(),
-                credentials: 'include',
-                mode: 'cors',
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                // Sukces - produkt dodany
-                setIsAdded(true);
-                setTimeout(() => setIsAdded(false), 2000);
-            } else if (data.error) {
-                // Wyświetlamy błąd z odpowiedzi
-                console.error('Błąd WooCommerce:', data.error);
-                // Fallback - przekierowanie do URL dodania do koszyka
-                redirectToAddToCart();
-            } else {
-                // Fallback - jeśli nie ma danych o sukcesie lub błędzie, zakładamy sukces
-                setIsAdded(true);
-                setTimeout(() => setIsAdded(false), 2000);
-            }
-        } catch (error) {
-            console.error('Błąd podczas dodawania do koszyka:', error);
-            // Spróbujmy fallback - przekierowanie do URL dodania do koszyka
-            redirectToAddToCart();
-        } finally {
-            setLoading(false);
-        }
-    };
-    
-    // Funkcja przekierowująca do URL dodania do koszyka (fallback)
-    const redirectToAddToCart = () => {
-        window.open(`${SHOP_URL}/?add-to-cart=${spice.id}`, '_blank');
+        // Bezpośrednie przekierowanie do adresu dodania produktu
+        // Dla lepszego UX, najpierw pokazujemy stan "Dodawanie..."
+        setTimeout(() => {
+            window.location.href = `${SHOP_URL}/?add-to-cart=${spice.id}`;
+        }, 500);
     };
 
     return (
