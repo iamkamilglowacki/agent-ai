@@ -13,6 +13,13 @@ interface WooCommerceProductProps {
     };
 }
 
+// Interfejs dla globalnego obiektu WooCommerce
+interface WCWindow extends Window {
+    wc_add_to_cart_params?: {
+        wc_ajax_nonce: string;
+    };
+}
+
 const SHOP_URL = 'https://flavorinthejar.com';
 
 export default function WooCommerceProduct({ product }: WooCommerceProductProps) {
@@ -25,7 +32,7 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         
         try {
             // Używamy nonce jeśli jest dostępny (zabezpieczenie WooCommerce)
-            const nonce = (window as any).wc_add_to_cart_params?.wc_ajax_nonce || '';
+            const nonce = ((window as WCWindow).wc_add_to_cart_params?.wc_ajax_nonce || '');
             
             // Dodajemy produkt do koszyka za pomocą WC AJAX API
             const response = await fetch(`${SHOP_URL}/?wc-ajax=add_to_cart`, {
