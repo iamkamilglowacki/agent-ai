@@ -34,12 +34,16 @@ export async function POST(request: Request) {
     
     // Wykonaj żądanie POST do WooCommerce
     const wooCommerceUrl = 'https://smakosz.flavorinthejar.com/';
-    console.log('[API] Wysyłanie żądania POST do WooCommerce:', wooCommerceUrl);
+    const wooCommerceParams = new URLSearchParams({
+      'add-to-cart': productId.toString(),
+      'quantity': quantity.toString(),
+      'wc-ajax': 'add_to_cart'
+    });
+    console.log('[API] Wysyłanie żądania POST do WooCommerce:', wooCommerceUrl + '?' + wooCommerceParams.toString());
 
-    const wooResponse = await fetch(wooCommerceUrl + '?wc-ajax=add_to_cart', {
+    const wooResponse = await fetch(wooCommerceUrl + '?' + wooCommerceParams.toString(), {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'Cookie': cookieHeader,
         'Accept': 'application/json, text/javascript, */*; q=0.01',
         'User-Agent': 'Mozilla/5.0 (compatible; FlavoAI/1.0)',
@@ -47,7 +51,6 @@ export async function POST(request: Request) {
         'Referer': 'https://smakosz.flavorinthejar.com/',
         'X-Requested-With': 'XMLHttpRequest'
       },
-      body: wooFormData.toString(),
       credentials: 'include'
     });
 
