@@ -41,7 +41,7 @@ logger.info(f"Configured CORS allowed origins: {allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Tymczasowo zezwól na wszystkie pochodzenia
+    allow_origins=allowed_origins,  # Używamy zdefiniowanej listy origins zamiast wildcard
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
