@@ -1,0 +1,34 @@
+[
+    {
+        "title": "Sałatka owocowa z czekoladą",
+        "ingredients": [
+            "2 jabłka",
+            "2 gruszki",
+            "1 banan",
+            "100g ciemnej czekolady",
+            "garść orzechów włoskich"
+        ],
+        "steps": [
+            "Umyj i pokrój owoce w kostkę",
+            "Rozpuść czekoladę w kąpieli wodnej",
+            "Wymieszaj owoce w misce",
+            "Polej rozpuszczoną czekoladą",
+            "Posyp posiekanymi orzechami"
+        ]
+    },
+    {
+        "title": "Fondue owocowe",
+        "ingredients": [
+            "200g mlecznej czekolady",
+            "100ml śmietanki 30%",
+            "różne owoce do maczania",
+            "szczypta cynamonu"
+        ],
+        "steps": [
+            "Rozpuść czekoladę ze śmietanką",
+            "Dodaj cynamon i wymieszaj",
+            "Przełóż do naczynia do fondue",
+            "Podawaj z owocami do maczania"
+        ]
+    }
+] 
