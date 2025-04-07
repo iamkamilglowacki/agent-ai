@@ -15,6 +15,31 @@ interface WooCommerceProductProps {
 
 const SHOP_URL = 'https://flavorinthejar.com';
 
+// Funkcja do odświeżania mini-koszyka
+const refreshMiniCart = () => {
+    // Znajdujemy wszystkie elementy koszyka na stronie
+    const miniCartElements = document.querySelectorAll('.mini-cart-count');
+    
+    // Pobieramy aktualny stan koszyka
+    fetch('/api/cart/get', {
+        method: 'GET',
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Aktualizujemy licznik produktów w koszyku
+        miniCartElements.forEach(element => {
+            if (element instanceof HTMLElement) {
+                element.innerText = data.count?.toString() || '0';
+                // Dodajemy animację
+                element.classList.add('cart-updated');
+                setTimeout(() => element.classList.remove('cart-updated'), 1000);
+            }
+        });
+    })
+    .catch(error => console.error('Błąd podczas odświeżania koszyka:', error));
+};
+
 export default function WooCommerceProduct({ product }: WooCommerceProductProps) {
     const [loading, setLoading] = useState(false);
     const [added, setAdded] = useState(false);
@@ -72,6 +97,16 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
             setAdded(true);
             setTimeout(() => setAdded(false), 2000);
             
+            // Odświeżamy stan koszyka
+            refreshMiniCart();
+            
+            // Dodajemy animację do przycisku
+            const button = document.querySelector(`button[data-product-id="${product.id}"]`);
+            if (button) {
+                button.classList.add('added-to-cart');
+                setTimeout(() => button.classList.remove('added-to-cart'), 1000);
+            }
+            
         } catch (err) {
             console.error('Błąd podczas dodawania do koszyka:', err);
             setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas dodawania do koszyka');
@@ -99,6 +134,7 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
                         <button 
                             onClick={handleAddToCart}
                             disabled={loading || added}
+                            data-product-id={product.id}
                             className={`px-3 py-1 text-xs bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors ${loading || added ? 'opacity-50' : ''}`}
                         >
                             {loading ? 'Dodawanie...' : added ? 'Dodano!' : 'Dodaj do koszyka'}
