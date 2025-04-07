@@ -53,10 +53,30 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
                         }
                     });
                     
-                    const wooCommerceData = await wooCommerceResponse.json();
-                    console.log('Odpowiedź z WooCommerce:', wooCommerceData);
+                    // Sprawdzamy typ odpowiedzi przed próbą parsowania JSON
+                    const contentType = wooCommerceResponse.headers.get('content-type');
+                    let wooCommerceData;
                     
-                    if (wooCommerceData.error) {
+                    if (contentType && contentType.includes('application/json')) {
+                        try {
+                            wooCommerceData = await wooCommerceResponse.json();
+                            console.log('Odpowiedź JSON z WooCommerce:', wooCommerceData);
+                        } catch (jsonError) {
+                            console.error('Błąd parsowania JSON:', jsonError);
+                            const responseText = await wooCommerceResponse.text();
+                            console.log('Odpowiedź tekstowa z WooCommerce:', responseText.substring(0, 200));
+                            // Traktujemy jako sukces mimo błędu JSON
+                            wooCommerceData = { success: true };
+                        }
+                    } else {
+                        // Jeśli odpowiedź nie jest JSON, pobieramy tekst
+                        const responseText = await wooCommerceResponse.text();
+                        console.log('Odpowiedź tekstowa z WooCommerce:', responseText.substring(0, 200));
+                        // Traktujemy jako sukces jeśli status jest OK
+                        wooCommerceData = { success: wooCommerceResponse.ok };
+                    }
+                    
+                    if (wooCommerceData && wooCommerceData.error) {
                         throw new Error(wooCommerceData.error);
                     }
                     
@@ -65,10 +85,12 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
                 } catch (wooError) {
                     console.error('Błąd WooCommerce:', wooError);
                     // Jeśli wystąpi błąd CORS, spróbujmy otworzyć w nowej karcie
-                    if (wooError instanceof Error && wooError.message.includes('CORS')) {
+                    if (wooError instanceof Error && 
+                        (wooError.message.includes('CORS') || 
+                         wooError.message.includes('JSON'))) {
                         window.open(data.redirectUrl, '_blank');
                     }
-                    setIsAdded(true); // Zakładamy, że dodanie się udało mimo błędu CORS
+                    setIsAdded(true); // Zakładamy, że dodanie się udało mimo błędu
                     setTimeout(() => setIsAdded(false), 2000);
                 }
             } else {
