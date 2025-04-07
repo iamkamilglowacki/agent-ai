@@ -107,8 +107,7 @@ export default function ImageInput({ onResponse, onError, onImageUpload, setIsLo
                 headers: {
                     'Accept': 'application/x-ndjson',
                 },
-                body: formData,
-                credentials: 'include'
+                body: formData
             });
 
             if (!response.ok) {
