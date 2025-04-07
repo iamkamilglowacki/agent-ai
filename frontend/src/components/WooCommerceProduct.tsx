@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface WooCommerceProductProps {
     product: {
@@ -18,16 +18,88 @@ const SHOP_URL = 'https://flavorinthejar.com';
 export default function WooCommerceProduct({ product }: WooCommerceProductProps) {
     const [loading, setLoading] = useState(false);
     const [added, setAdded] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [cartCount, setCartCount] = useState<number | null>(null);
+
+    // Po zamontowaniu komponentu, sprawdzamy stan koszyka
+    useEffect(() => {
+        // Możemy sprawdzić stan koszyka, jeśli potrzebujemy
+    }, []);
 
     const handleAddToCart = (e: React.MouseEvent) => {
         e.preventDefault();
         setLoading(true);
+        setError(null);
         
-        // Bezpośrednie przekierowanie do adresu dodania produktu
-        // Dla lepszego UX, najpierw pokazujemy stan "Dodawanie..."
-        setTimeout(() => {
-            window.location.href = `${SHOP_URL}/?add-to-cart=${product.id}`;
-        }, 500);
+        // Tworzymy XMLHttpRequest, które lepiej radzi sobie z CORS
+        const xhr = new XMLHttpRequest();
+        
+        // Ustawiamy withCredentials na true, aby wysyłać ciasteczka
+        xhr.withCredentials = true;
+        
+        xhr.open('POST', `${SHOP_URL}/?wc-ajax=add_to_cart`, true);
+        
+        // Ustawiamy odpowiednie nagłówki
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.setRequestHeader('Accept', 'application/json');
+        
+        // Nasłuchujemy na zmiany stanu
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                setLoading(false);
+                
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        
+                        if (response.success) {
+                            // Sukces - produkt dodany
+                            setAdded(true);
+                            setTimeout(() => setAdded(false), 2000);
+                            
+                            // Aktualizacja liczby produktów w koszyku, jeśli dostępna
+                            if (response.cart_count) {
+                                setCartCount(response.cart_count);
+                            }
+                        } else if (response.error) {
+                            // Błąd zwrócony przez WooCommerce
+                            console.error('Błąd WooCommerce:', response.error);
+                            setError(`Błąd: ${response.error}`);
+                        } else {
+                            // Zakładamy sukces, jeśli nie ma informacji o błędzie
+                            setAdded(true);
+                            setTimeout(() => setAdded(false), 2000);
+                        }
+                    } catch (e) {
+                        console.error('Błąd parsowania odpowiedzi:', e, xhr.responseText);
+                        setError('Wystąpił problem z dodaniem produktu do koszyka.');
+                    }
+                } else {
+                    console.error('Błąd HTTP:', xhr.status);
+                    setError(`Błąd połączenia: ${xhr.status}`);
+                }
+            }
+        };
+        
+        // Obsługa błędów sieciowych
+        xhr.onerror = function() {
+            console.error('Błąd sieciowy podczas dodawania do koszyka');
+            setLoading(false);
+            setError('Wystąpił problem z połączeniem do sklepu.');
+        };
+        
+        // Przygotowanie danych do wysłania
+        const data = new URLSearchParams({
+            'product_id': product.id.toString(),
+            'quantity': '1',
+            'add-to-cart': product.id.toString(),
+            '_wpnonce': '', // Jeśli mamy nonce, warto je dodać
+            'woocommerce-add-to-cart-nonce': '', // Alternatywny format nonce
+            'add_to_cart_via_ajax': '1' // Specjalny parametr dla niektórych motywów WooCommerce
+        }).toString();
+        
+        // Wysłanie żądania
+        xhr.send(data);
     };
 
     return (
@@ -56,6 +128,13 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
                     </div>
                 </div>
             </div>
+            
+            {error && (
+                <div className="mt-2 p-2 bg-red-50 text-red-600 text-xs rounded">
+                    {error}
+                </div>
+            )}
+            
             <div 
                 className="text-sm text-gray-600" 
                 dangerouslySetInnerHTML={{ __html: product.description }}
