@@ -64,13 +64,13 @@ export function getApiUrl(): string {
 export const API_URL = getApiUrl();
 console.log('Configured API URL:', API_URL);
 
-// Eksportujemy końcówki API z pełnymi URL-ami
+// Eksportujemy końcówki API używając template stringów
 export const API_ENDPOINTS = {
-    ANALYZE_TEXT: new URL('/api/analyze/text', API_URL).toString(),
-    ANALYZE_VOICE: new URL('/api/analyze/voice', API_URL).toString(),
-    ANALYZE_IMAGE: new URL('/api/analyze/image', API_URL).toString(),
-    SEARCH_RECIPES: new URL('/api/recipes/search', API_URL).toString(),
-    GET_SPICES: new URL('/api/spices', API_URL).toString(),
+    ANALYZE_TEXT: `${API_URL}/api/analyze/text`,
+    ANALYZE_VOICE: `${API_URL}/api/analyze/voice`,
+    ANALYZE_IMAGE: `${API_URL}/api/analyze/image`,
+    SEARCH_RECIPES: `${API_URL}/api/recipes/search`,
+    GET_SPICES: `${API_URL}/api/spices`,
 };
 
 console.log('Configured API endpoints:', API_ENDPOINTS); 
