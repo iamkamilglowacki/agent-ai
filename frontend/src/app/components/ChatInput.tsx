@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { API_ENDPOINTS } from '../config/api';
+import { Recipe } from '@/types/recipe';
 
 interface ChatInputProps {
-    onResponse: (data: any) => void;
+    onResponse: (data: { recipes: Recipe[] }) => void;
     onError: (error: string) => void;
 }
 

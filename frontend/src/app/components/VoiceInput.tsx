@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { API_ENDPOINTS } from '../config/api';
 import { getSpiceRecommendationByIngredients } from '@/services/spiceRecommendations';
 import { Recipe } from '@/types/recipe';
@@ -65,7 +65,7 @@ export default function VoiceInput({ onResponse, onError }: VoiceInputProps) {
                 navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
             }
         };
-    }, []); // Pusta tablica zależności - wykonaj tylko przy montowaniu
+    }, [onError]); // Dodajemy onError do zależności
 
     const startRecording = async () => {
         if (typeof window === 'undefined') {
@@ -156,7 +156,7 @@ export default function VoiceInput({ onResponse, onError }: VoiceInputProps) {
             let finalBlob = audioBlob;
             if (audioBlob.type !== 'audio/wav') {
                 try {
-                    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                    const audioContext = new (window.AudioContext)();
                     const arrayBuffer = await audioBlob.arrayBuffer();
                     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
                     
@@ -198,10 +198,11 @@ export default function VoiceInput({ onResponse, onError }: VoiceInputProps) {
                     finalBlob = wavBlob;
                 } catch (error) {
                     console.warn('Nie udało się przekonwertować do WAV:', error);
+                    // Kontynuuj z oryginalnym formatem
                 }
             }
-            
-            formData.append('file', finalBlob, `recording.wav`);
+
+            formData.append('file', finalBlob);
 
             const response = await fetch(API_ENDPOINTS.ANALYZE_VOICE, {
                 method: 'POST',
@@ -210,50 +211,15 @@ export default function VoiceInput({ onResponse, onError }: VoiceInputProps) {
             });
 
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ detail: 'Nieznany błąd' }));
-                throw new Error(errorData.detail || 'Nie udało się przetworzyć nagrania');
+                throw new Error('Nie udało się przetworzyć nagrania');
             }
 
             const data = await response.json();
-            
-            // Sprawdź czy mamy transkrypcję
-            if (data.transcript) {
-                // Pokaż transkrypcję jako tymczasową odpowiedź
-                const recommendedSpice = getSpiceRecommendationByIngredients([data.transcript]);
-                onResponse({
-                    recipes: [{
-                        title: "Transkrypcja nagrania",
-                        ingredients: [],
-                        steps: ["Przetwarzam nagranie: " + data.transcript],
-                        spice_recommendations: { recipe_blend: recommendedSpice }
-                    }]
-                });
-            }
-            
-            // Jeśli mamy przepisy, zaktualizuj odpowiedź
-            if (data.recipes && data.recipes.length > 0) {
-                // Upewnij się, że każdy przepis ma wszystkie wymagane pola
-                const validatedRecipes = data.recipes.map((recipe: Recipe) => {
-                    const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
-                    const recommendedSpice = getSpiceRecommendationByIngredients(ingredients);
-                    
-                    return {
-                        title: recipe.title || "Przepis",
-                        ingredients: ingredients,
-                        steps: Array.isArray(recipe.steps) ? recipe.steps : [],
-                        spice_recommendations: { recipe_blend: recommendedSpice },
-                        alternative_dishes: Array.isArray(recipe.alternative_dishes) ? recipe.alternative_dishes : []
-                    };
-                });
-                
-                onResponse({ recipes: validatedRecipes });
-            }
-            
-            setIsLoading(false);
+            onResponse(data);
         } catch (error) {
-            console.error('Błąd podczas przetwarzania nagrania:', error);
             onError(error instanceof Error ? error.message : 'Wystąpił nieznany błąd');
-            handleError();
+        } finally {
+            setIsLoading(false);
         }
     };
 
