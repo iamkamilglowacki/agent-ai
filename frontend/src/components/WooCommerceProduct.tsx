@@ -26,16 +26,36 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         // Możemy sprawdzić stan koszyka, jeśli potrzebujemy
     }, []);
 
-    const handleAddToCart = (e: React.MouseEvent) => {
+    const handleAddToCart = async (e: React.MouseEvent) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
         
-        // Na lokalnym środowisku używamy przekierowania
-        window.location.href = `https://flavorinthejar.com/?add-to-cart=${product.id}`;
-        setAdded(true);
-        setLoading(false);
-        setTimeout(() => setAdded(false), 2000);
+        try {
+            const formData = new FormData();
+            formData.append('add-to-cart', product.id.toString());
+            formData.append('quantity', '1');
+            
+            const response = await fetch(`${SHOP_URL}/`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Nie udało się dodać produktu do koszyka');
+            }
+
+            setAdded(true);
+            setTimeout(() => setAdded(false), 2000);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas dodawania do koszyka');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

@@ -9,14 +9,42 @@ interface RecipeCardProps {
     recipe: Recipe;
 }
 
+const SHOP_URL = 'https://flavorinthejar.com';
+
 export default function RecipeCard({ recipe }: RecipeCardProps) {
     const [isAdded, setIsAdded] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const handleAddToCart = (url: string) => {
-        // Na lokalnym środowisku używamy przekierowania
-        window.location.href = `https://flavorinthejar.com${url}`;
-        setIsAdded(true);
-        setTimeout(() => setIsAdded(false), 2000);
+    const handleAddToCart = async (productId: number) => {
+        setLoading(true);
+        setError(null);
+        
+        try {
+            const formData = new FormData();
+            formData.append('add-to-cart', productId.toString());
+            formData.append('quantity', '1');
+            
+            const response = await fetch(`${SHOP_URL}/`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Nie udało się dodać produktu do koszyka');
+            }
+
+            setIsAdded(true);
+            setTimeout(() => setIsAdded(false), 2000);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas dodawania do koszyka');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const renderRecipe = (recipe: Recipe) => {
@@ -48,20 +76,19 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
                                         <p className="text-sm font-medium text-green-700 mt-1">{spiceBlend.price}</p>
                                     </div>
                                 </div>
-                                <a
-                                    href={spiceBlend.add_to_cart_url}
+                                <button
+                                    onClick={() => handleAddToCart(spiceBlend.id)}
+                                    disabled={loading || isAdded}
                                     className={`ml-4 px-4 py-2 rounded-lg transition-all duration-200 ${
                                         isAdded
                                             ? 'bg-green-100 text-green-700'
-                                            : 'bg-green-600 text-white hover:bg-green-700'
+                                            : loading
+                                                ? 'bg-gray-300 text-gray-700'
+                                                : 'bg-green-600 text-white hover:bg-green-700'
                                     }`}
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        handleAddToCart(spiceBlend.add_to_cart_url);
-                                    }}
                                 >
-                                    {isAdded ? 'Dodano!' : 'Dodaj do koszyka'}
-                                </a>
+                                    {loading ? 'Dodawanie...' : isAdded ? 'Dodano!' : 'Dodaj do koszyka'}
+                                </button>
                             </li>
                         )}
                         {regularIngredients.map((ingredient: string, idx: number) => (
