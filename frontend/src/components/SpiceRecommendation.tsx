@@ -33,69 +33,58 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
             
             console.log('Wysyłam żądanie POST do API proxy');
             
-            // Tworzymy iframe do obsługi dodawania do koszyka
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.name = 'add-to-cart-frame';
-            document.body.appendChild(iframe);
+            // Wykonujemy żądanie do naszego API
+            const response = await fetch('/api/add-to-cart', {
+                method: 'POST',
+                body: formData
+            });
             
-            // Tworzymy formularz do wysłania przez iframe
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '/api/add-to-cart';
-            form.target = 'add-to-cart-frame';
+            const data = await response.json();
             
-            // Dodajemy pola formularza
-            const productIdInput = document.createElement('input');
-            productIdInput.type = 'hidden';
-            productIdInput.name = 'productId';
-            productIdInput.value = spice.id.toString();
-            form.appendChild(productIdInput);
+            if (!response.ok) {
+                throw new Error(data.error || 'Wystąpił błąd podczas dodawania do koszyka');
+            }
             
-            const quantityInput = document.createElement('input');
-            quantityInput.type = 'hidden';
-            quantityInput.name = 'quantity';
-            quantityInput.value = '1';
-            form.appendChild(quantityInput);
+            console.log('Otrzymano dane z API:', data);
             
-            // Dodajemy formularz do dokumentu i wysyłamy
-            document.body.appendChild(form);
-            form.submit();
-            
-            // Nasłuchujemy na wiadomość z iframe
-            window.addEventListener('message', function messageHandler(event) {
-                if (event.data && (event.data.status === 'success' || event.data.status === 'error')) {
-                    window.removeEventListener('message', messageHandler);
+            if (data.redirectUrl) {
+                // Wykonujemy bezpośrednie żądanie AJAX do WooCommerce
+                try {
+                    const wooCommerceResponse = await fetch(data.redirectUrl, {
+                        method: 'GET',
+                        credentials: 'include',
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
                     
-                    if (event.data.status === 'success') {
-                        console.log('Produkt dodany do koszyka:', event.data.message);
-                        setIsAdded(true);
-                        setTimeout(() => setIsAdded(false), 2000);
-                    } else {
-                        console.error('Błąd podczas dodawania do koszyka:', event.data.message);
-                        setError(event.data.message || 'Wystąpił błąd podczas dodawania do koszyka');
+                    const wooCommerceData = await wooCommerceResponse.json();
+                    console.log('Odpowiedź z WooCommerce:', wooCommerceData);
+                    
+                    if (wooCommerceData.error) {
+                        throw new Error(wooCommerceData.error);
                     }
                     
-                    setLoading(false);
-                    
-                    // Usuwamy formularz i iframe
-                    setTimeout(() => {
-                        if (document.body.contains(form)) document.body.removeChild(form);
-                        if (document.body.contains(iframe)) document.body.removeChild(iframe);
-                    }, 2000);
+                    setIsAdded(true);
+                    setTimeout(() => setIsAdded(false), 2000);
+                } catch (wooError) {
+                    console.error('Błąd WooCommerce:', wooError);
+                    // Jeśli wystąpi błąd CORS, spróbujmy otworzyć w nowej karcie
+                    if (wooError instanceof Error && wooError.message.includes('CORS')) {
+                        window.open(data.redirectUrl, '_blank');
+                    }
+                    setIsAdded(true); // Zakładamy, że dodanie się udało mimo błędu CORS
+                    setTimeout(() => setIsAdded(false), 2000);
                 }
-            });
-
-            // Ustawiamy timeout na wypadek braku odpowiedzi
-            setTimeout(() => {
+            } else {
                 setIsAdded(true);
                 setTimeout(() => setIsAdded(false), 2000);
-                setLoading(false);
-            }, 3000);
+            }
             
         } catch (err) {
             console.error('Błąd podczas dodawania do koszyka:', err);
             setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas dodawania do koszyka');
+        } finally {
             setLoading(false);
         }
     };

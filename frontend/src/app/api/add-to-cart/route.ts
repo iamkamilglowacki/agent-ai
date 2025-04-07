@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 
 // Przekierowanie użytkownika do strony z formularzem, który automatycznie wyśle żądanie
 export async function POST(request: Request) {
@@ -16,75 +15,14 @@ export async function POST(request: Request) {
     }
 
     // URL do dodania produktu do koszyka
-    const addToCartUrl = `https://flavorinthejar.com/?add-to-cart=${productId}&quantity=${quantity}`;
+    const addToCartUrl = `https://flavorinthejar.com/?wc-ajax=add_to_cart&product_id=${productId}&quantity=${quantity}`;
     
-    // Tworzymy stronę HTML z automatycznym przekierowaniem/formularzem
-    const htmlResponse = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Przekierowywanie do koszyka...</title>
-        <script>
-          // Funkcja do tworzenia iframe i wysyłania formularza
-          function addToCart() {
-            // Tworzymy ukryty iframe
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            document.body.appendChild(iframe);
-            
-            // Po załadowaniu iframe, tworzymy i wysyłamy formularz
-            iframe.onload = function() {
-              try {
-                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                const form = iframeDoc.createElement('form');
-                form.method = 'POST';
-                form.action = 'https://flavorinthejar.com/';
-                
-                // Dodajemy pola formularza
-                const addToCartInput = iframeDoc.createElement('input');
-                addToCartInput.type = 'hidden';
-                addToCartInput.name = 'add-to-cart';
-                addToCartInput.value = '${productId}';
-                form.appendChild(addToCartInput);
-                
-                const quantityInput = iframeDoc.createElement('input');
-                quantityInput.type = 'hidden';
-                quantityInput.name = 'quantity';
-                quantityInput.value = '${quantity}';
-                form.appendChild(quantityInput);
-                
-                // Dodajemy formularz do iframe i wysyłamy
-                iframeDoc.body.appendChild(form);
-                form.submit();
-                
-                // Informujemy rodzica o sukcesie
-                window.parent.postMessage({ status: 'success', message: 'Produkt dodany do koszyka' }, '*');
-              } catch(e) {
-                console.error('Błąd podczas dodawania do koszyka:', e);
-                window.parent.postMessage({ status: 'error', message: e.toString() }, '*');
-              }
-            };
-            
-            // Ustawiamy źródło iframe na pusty dokument HTML
-            iframe.src = 'about:blank';
-          }
-          
-          // Wywołujemy funkcję po załadowaniu strony
-          window.onload = addToCart;
-        </script>
-      </head>
-      <body>
-        <p>Dodawanie produktu do koszyka...</p>
-      </body>
-      </html>
-    `;
-    
-    // Zwracamy stronę HTML jako odpowiedź
-    const response = new NextResponse(htmlResponse, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-      }
+    // Przekieruj na WooCommerce AJAX endpoint
+    const response = NextResponse.json({ 
+      success: true, 
+      redirectUrl: addToCartUrl,
+      productId: productId,
+      quantity: quantity
     });
     
     return response;
