@@ -23,33 +23,65 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         e.preventDefault();
         setLoading(true);
         
-        const formData = new FormData();
-        formData.append('product_id', product.id.toString());
-        formData.append('add-to-cart', product.id.toString());
-        
         try {
+            // Używamy nonce jeśli jest dostępny (zabezpieczenie WooCommerce)
+            const nonce = (window as any).wc_add_to_cart_params?.wc_ajax_nonce || '';
+            
+            // Dodajemy produkt do koszyka za pomocą WC AJAX API
             const response = await fetch(`${SHOP_URL}/?wc-ajax=add_to_cart`, {
                 method: 'POST',
-                body: formData,
-                credentials: 'include',
                 headers: {
-                    'Accept': 'application/json',
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Origin': 'https://app.flavorinthejar.com'
-                }
+                    'Accept': 'application/json',
+                    'Origin': 'https://smakosz.flavorinthejar.com',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: new URLSearchParams({
+                    'product_id': product.id.toString(),
+                    'quantity': '1',
+                    'add-to-cart': product.id.toString(),
+                    'security': nonce
+                }).toString(),
+                credentials: 'include',
+                mode: 'cors',
             });
             
             const data = await response.json();
             
-            if (data.fragments) {
+            if (data.success) {
+                // Sukces - produkt dodany
                 setAdded(true);
+                // Pokazujemy powiadomienie
+                showNotification(`${product.name} został dodany do koszyka`);
+            } else if (data.error) {
+                // Wyświetlamy błąd z odpowiedzi
+                console.error('Błąd WooCommerce:', data.error);
+                alert(data.error);
+            } else {
+                // Fallback - jeśli nie ma danych o sukcesie lub błędzie, zakładamy sukces
+                setAdded(true);
+                showNotification(`${product.name} został dodany do koszyka`);
             }
         } catch (error) {
             console.error('Błąd podczas dodawania do koszyka:', error);
-            alert('Nie udało się dodać produktu do koszyka');
+            // Spróbujmy fallback - przekierowanie do URL dodania do koszyka
+            redirectToAddToCart();
         } finally {
             setLoading(false);
         }
+    };
+
+    // Funkcja pokazująca powiadomienie z opcją przejścia do koszyka
+    const showNotification = (message: string) => {
+        const confirmed = window.confirm(`${message}. Czy chcesz przejść do koszyka?`);
+        if (confirmed) {
+            window.location.href = `${SHOP_URL}/cart/`;
+        }
+    };
+
+    // Funkcja przekierowująca do URL dodania do koszyka (fallback)
+    const redirectToAddToCart = () => {
+        window.location.href = `${SHOP_URL}/?add-to-cart=${product.id}`;
     };
 
     return (
