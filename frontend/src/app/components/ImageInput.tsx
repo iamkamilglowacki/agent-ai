@@ -89,8 +89,34 @@ export default function ImageInput({ onResponse, onError, onImageUpload, setIsLo
             setIsLoading(true);
             setProgress(10); // Rozpoczęcie optymalizacji
 
+            // Sprawdź typ pliku
+            if (!file.type.startsWith('image/')) {
+                throw new Error('Wybrany plik nie jest obrazem. Wybierz plik w formacie JPG, PNG lub WebP.');
+            }
+
+            // Sprawdź rozmiar pliku (np. max 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                throw new Error('Rozmiar pliku jest zbyt duży. Maksymalny rozmiar to 10MB.');
+            }
+
+            console.log('Rozpoczynam optymalizację obrazu', { 
+                nazwa: file.name, 
+                rozmiar: `${(file.size / 1024).toFixed(2)}KB`, 
+                typ: file.type 
+            });
+
             // Optymalizuj obraz przed wysłaniem
-            const optimizedFile = await optimizeImage(file);
+            const optimizedFile = await optimizeImage(file).catch(error => {
+                console.error('Błąd podczas optymalizacji obrazu:', error);
+                throw new Error(`Nie udało się zoptymalizować obrazu: ${error.message || 'nieznany błąd'}`);
+            });
+            
+            console.log('Obraz zoptymalizowany', { 
+                nazwa: optimizedFile.name, 
+                rozmiar: `${(optimizedFile.size / 1024).toFixed(2)}KB`, 
+                typ: optimizedFile.type 
+            });
+            
             setProgress(30); // Obraz zoptymalizowany
             
             // Tworzenie URL-a dla wgranego zdjęcia
@@ -101,132 +127,198 @@ export default function ImageInput({ onResponse, onError, onImageUpload, setIsLo
             const formData = new FormData();
             formData.append('file', optimizedFile);
 
-            // Używam zaimportowanego endpointu zamiast hardcodowanego adresu
-            const response = await fetch(API_ENDPOINTS.ANALYZE_IMAGE, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/x-ndjson',
-                },
-                body: formData
-            });
+            console.log('Wysyłam obraz do API', { endpoint: API_ENDPOINTS.ANALYZE_IMAGE });
 
-            if (!response.ok) {
-                throw new Error('Błąd podczas analizy zdjęcia');
+            // Sprawdź czy API jest dostępne przed wysłaniem
+            try {
+                const checkResponse = await fetch(API_ENDPOINTS.ANALYZE_IMAGE, { 
+                    method: 'HEAD',
+                    cache: 'no-cache'
+                }).catch(error => {
+                    console.error('Błąd przy sprawdzaniu dostępności API:', error);
+                    throw new Error(`Serwer analizy obrazów jest niedostępny. Sprawdź połączenie internetowe i stan serwera: ${error.message || ''}`);
+                });
+                
+                if (!checkResponse.ok) {
+                    throw new Error(`Serwer analizy obrazów zwrócił błąd: ${checkResponse.status} ${checkResponse.statusText}`);
+                }
+            } catch (error) {
+                console.error('Błąd sprawdzania API:', error);
+                throw error;
             }
 
-            setProgress(60); // Obraz przesłany do API
+            // Wysyłanie z timeout'em dla lepszej obsługi błędów połączenia
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+            
+            try {
+                const response = await fetch(API_ENDPOINTS.ANALYZE_IMAGE, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/x-ndjson',
+                    },
+                    body: formData,
+                    signal: controller.signal
+                });
 
-            // Obsługa streamingu odpowiedzi
-            const reader = response.body?.getReader();
-            if (!reader) throw new Error('Nie można odczytać odpowiedzi');
+                clearTimeout(timeoutId);
 
-            const decoder = new TextDecoder();
-            let buffer = ''; // Bufor na niekompletne chunki
-            let fullAnalysis = ''; // Pełna analiza
-            let finalResponseReceived = false;
+                if (!response.ok) {
+                    const errorText = await response.text().catch(() => '');
+                    console.error('Błąd odpowiedzi API:', { 
+                        status: response.status, 
+                        statusText: response.statusText,
+                        body: errorText
+                    });
+                    
+                    if (response.status === 413) {
+                        throw new Error('Plik jest zbyt duży dla serwera. Spróbuj z mniejszym zdjęciem.');
+                    } else if (response.status === 415) {
+                        throw new Error('Format pliku nie jest obsługiwany. Użyj JPG, PNG lub WebP.');
+                    } else if (response.status >= 500) {
+                        throw new Error(`Błąd serwera podczas analizy zdjęcia (${response.status}). Spróbuj ponownie później.`);
+                    } else {
+                        throw new Error(`Błąd podczas analizy zdjęcia: ${response.status} ${response.statusText} ${errorText ? '- ' + errorText : ''}`);
+                    }
+                }
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) {
-                    if (!finalResponseReceived) {
-                        // Jeśli nie otrzymaliśmy ostatecznej odpowiedzi, a strumień się zakończył
-                        setProgress(100);
-                        setIsProcessing(false);
-                        setIsLoading(false);
+                setProgress(60); // Obraz przesłany do API
+
+                // Obsługa streamingu odpowiedzi
+                const reader = response.body?.getReader();
+                if (!reader) throw new Error('Nie można odczytać odpowiedzi ze strumienia');
+
+                const decoder = new TextDecoder();
+                let buffer = ''; // Bufor na niekompletne chunki
+                let fullAnalysis = ''; // Pełna analiza
+                let finalResponseReceived = false;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        if (!finalResponseReceived) {
+                            // Jeśli nie otrzymaliśmy ostatecznej odpowiedzi, a strumień się zakończył
+                            setProgress(100);
+                            setIsProcessing(false);
+                            setIsLoading(false);
+                            break;
+                        }
                         break;
                     }
-                    break;
-                }
-                
-                // Dodaj nowe dane do bufora
-                buffer += decoder.decode(value, { stream: true });
-                
-                // Podziel na linie i przetwórz kompletne JSON-y
-                const lines = buffer.split('\n');
-                // Zachowaj ostatnią (potencjalnie niekompletną) linię w buforze
-                buffer = lines.pop() || '';
-                
-                for (const line of lines) {
-                    if (line.trim()) {
-                        try {
-                            const data = JSON.parse(line);
-                            if (data.error) {
-                                throw new Error(data.error);
-                            }
-                            if (data.analysis) {
-                                fullAnalysis = data.analysis;
-                                
-                                // Jeśli to ostateczna odpowiedź, próbujemy ją sparsować jako JSON
-                                if (data.status === 'completed') {
-                                    finalResponseReceived = true;
-                                    try {
-                                        // Najpierw spróbuj potraktować analizę jako JSON
-                                        const recipeObj = JSON.parse(fullAnalysis);
-                                        onResponse(recipeObj, false); // Finalna odpowiedź
-                                        setProgress(100);
-                                        setIsProcessing(false);
-                                        setIsLoading(false);
-                                    } catch (e) {
-                                        // Jeśli nie jest JSON, przekaż jako tekst
-                                        onResponse(formatTextResponse(fullAnalysis), false); // Finalna odpowiedź
-                                        setProgress(100);
-                                        setIsProcessing(false);
-                                        setIsLoading(false);
-                                    }
-                                } else {
-                                    // Dla częściowych odpowiedzi, aktualizuj tekst ale zachowaj stan ładowania
-                                    onResponse(formatTextResponse(fullAnalysis), true); // Częściowa odpowiedź
-                                    setProgress(80 + (Math.random() * 10));
+                    
+                    // Dodaj nowe dane do bufora
+                    buffer += decoder.decode(value, { stream: true });
+                    
+                    // Podziel na linie i przetwórz kompletne JSON-y
+                    const lines = buffer.split('\n');
+                    // Zachowaj ostatnią (potencjalnie niekompletną) linię w buforze
+                    buffer = lines.pop() || '';
+                    
+                    for (const line of lines) {
+                        if (line.trim()) {
+                            try {
+                                const data = JSON.parse(line);
+                                if (data.error) {
+                                    throw new Error(data.error);
                                 }
-                                
+                                if (data.analysis) {
+                                    fullAnalysis = data.analysis;
+                                    
+                                    // Jeśli to ostateczna odpowiedź, próbujemy ją sparsować jako JSON
+                                    if (data.status === 'completed') {
+                                        finalResponseReceived = true;
+                                        try {
+                                            // Najpierw spróbuj potraktować analizę jako JSON
+                                            const recipeObj = JSON.parse(fullAnalysis);
+                                            onResponse(recipeObj, false); // Finalna odpowiedź
+                                            setProgress(100);
+                                            setIsProcessing(false);
+                                            setIsLoading(false);
+                                        } catch (e) {
+                                            // Jeśli nie jest JSON, przekaż jako tekst
+                                            onResponse(formatTextResponse(fullAnalysis), false); // Finalna odpowiedź
+                                            setProgress(100);
+                                            setIsProcessing(false);
+                                            setIsLoading(false);
+                                        }
+                                    } else {
+                                        // Dla częściowych odpowiedzi, aktualizuj tekst ale zachowaj stan ładowania
+                                        onResponse(formatTextResponse(fullAnalysis), true); // Częściowa odpowiedź
+                                        setProgress(80 + (Math.random() * 10));
+                                    }
+                                    
+                                }
+                            } catch (e) {
+                                console.error('Błąd parsowania JSON:', e);
+                                // W przypadku błędu parsowania, zachowujemy stan ładowania
                             }
-                        } catch (e) {
-                            console.error('Błąd parsowania JSON:', e);
-                            // W przypadku błędu parsowania, zachowujemy stan ładowania
                         }
                     }
                 }
-            }
-            
-            // Przetwórz pozostałe dane w buforze
-            if (buffer.trim() && !finalResponseReceived) {
-                try {
-                    const data = JSON.parse(buffer);
-                    if (data.error) {
-                        throw new Error(data.error);
-                    }
-                    if (data.analysis) {
-                        fullAnalysis = data.analysis;
-                        try {
-                            // Najpierw spróbuj potraktować analizę jako JSON
-                            const recipeObj = JSON.parse(fullAnalysis);
-                            onResponse(recipeObj, false);
-                            setProgress(100);
-                            setIsProcessing(false);
-                            setIsLoading(false);
-                        } catch (e) {
-                            // Jeśli nie jest JSON, przekaż jako tekst
-                            onResponse(formatTextResponse(fullAnalysis), false);
-                            setProgress(100);
-                            setIsProcessing(false);
-                            setIsLoading(false);
+                
+                // Przetwórz pozostałe dane w buforze
+                if (buffer.trim() && !finalResponseReceived) {
+                    try {
+                        const data = JSON.parse(buffer);
+                        if (data.error) {
+                            throw new Error(data.error);
                         }
+                        if (data.analysis) {
+                            fullAnalysis = data.analysis;
+                            try {
+                                // Najpierw spróbuj potraktować analizę jako JSON
+                                const recipeObj = JSON.parse(fullAnalysis);
+                                onResponse(recipeObj, false);
+                                setProgress(100);
+                                setIsProcessing(false);
+                                setIsLoading(false);
+                            } catch (e) {
+                                // Jeśli nie jest JSON, przekaż jako tekst
+                                onResponse(formatTextResponse(fullAnalysis), false);
+                                setProgress(100);
+                                setIsProcessing(false);
+                                setIsLoading(false);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Błąd parsowania końcowego JSON:', e);
                     }
-                } catch (e) {
-                    console.error('Błąd parsowania końcowego JSON:', e);
                 }
-            }
 
-            // Resetujemy stany tylko jeśli otrzymaliśmy ostateczną odpowiedź
-            if (finalResponseReceived) {
-                setProgress(100);
-                setIsProcessing(false);
-                setIsLoading(false);
+                // Resetujemy stany tylko jeśli otrzymaliśmy ostateczną odpowiedź
+                if (finalResponseReceived) {
+                    setProgress(100);
+                    setIsProcessing(false);
+                    setIsLoading(false);
+                }
+            } catch (error) {
+                console.error('Błąd podczas przesyłania lub przetwarzania obrazu:', error);
+                if (error instanceof Error && error.name === 'AbortError') {
+                    throw new Error('Przekroczono czas oczekiwania na odpowiedź serwera. Spróbuj ponownie później.');
+                }
+                throw error;
             }
         } catch (error) {
+            console.error('Błąd przetwarzania obrazu:', error);
             setIsProcessing(false);
             setIsLoading(false);
-            onError(error instanceof Error ? error.message : 'Wystąpił nieznany błąd');
+            
+            // Wyświetl szczegółowy komunikat błędu
+            const errorMessage = error instanceof Error 
+                ? error.message 
+                : 'Wystąpił nieznany błąd podczas przetwarzania zdjęcia';
+                
+            // Dodaj szczegóły techniczne w trybie deweloperskim
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Szczegóły błędu:', error);
+            }
+            
+            onError(errorMessage);
+            
+            // Wyczyść input pliku, aby użytkownik mógł spróbować ponownie z tym samym plikiem
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
         }
     };
 
