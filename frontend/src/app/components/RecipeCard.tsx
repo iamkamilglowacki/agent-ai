@@ -31,72 +31,35 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
             // Wykonujemy żądanie do naszego API
             const response = await fetch('/api/add-to-cart', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'include' // Ważne dla obsługi ciasteczek
             });
             
-            const data = await response.json();
+            // Sprawdzamy czy odpowiedź jest JSON
+            const contentType = response.headers.get('content-type');
+            let data;
+            
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
+                console.log('Odpowiedź JSON z API:', data);
+            } else {
+                const text = await response.text();
+                console.log('Odpowiedź tekstowa z API:', text.substring(0, 200));
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    console.error('Błąd parsowania JSON:', e);
+                    data = { success: response.ok };
+                }
+            }
             
             if (!response.ok) {
-                throw new Error(data.error || 'Wystąpił błąd podczas dodawania do koszyka');
+                throw new Error(data?.error || `Nie udało się dodać produktu do koszyka. Status: ${response.status}`);
             }
             
-            console.log('Otrzymano dane z API:', data);
-            
-            if (data.redirectUrl) {
-                // Wykonujemy bezpośrednie żądanie AJAX do WooCommerce
-                try {
-                    const wooCommerceResponse = await fetch(data.redirectUrl, {
-                        method: 'GET',
-                        credentials: 'include',
-                        headers: {
-                            'Accept': 'application/json'
-                        }
-                    });
-                    
-                    // Sprawdzamy typ odpowiedzi przed próbą parsowania JSON
-                    const contentType = wooCommerceResponse.headers.get('content-type');
-                    let wooCommerceData;
-                    
-                    if (contentType && contentType.includes('application/json')) {
-                        try {
-                            wooCommerceData = await wooCommerceResponse.json();
-                            console.log('Odpowiedź JSON z WooCommerce:', wooCommerceData);
-                        } catch (jsonError) {
-                            console.error('Błąd parsowania JSON:', jsonError);
-                            const responseText = await wooCommerceResponse.text();
-                            console.log('Odpowiedź tekstowa z WooCommerce:', responseText.substring(0, 200));
-                            // Traktujemy jako sukces mimo błędu JSON
-                            wooCommerceData = { success: true };
-                        }
-                    } else {
-                        // Jeśli odpowiedź nie jest JSON, pobieramy tekst
-                        const responseText = await wooCommerceResponse.text();
-                        console.log('Odpowiedź tekstowa z WooCommerce:', responseText.substring(0, 200));
-                        // Traktujemy jako sukces jeśli status jest OK
-                        wooCommerceData = { success: wooCommerceResponse.ok };
-                    }
-                    
-                    if (wooCommerceData && wooCommerceData.error) {
-                        throw new Error(wooCommerceData.error);
-                    }
-                    
-                    setIsAdded(true);
-                    setTimeout(() => setIsAdded(false), 2000);
-                } catch (wooError) {
-                    console.error('Błąd WooCommerce:', wooError);
-                    // Jeśli wystąpi błąd CORS, spróbujmy otworzyć w nowej karcie
-                    if (wooError instanceof Error && 
-                        (wooError.message.includes('CORS') || 
-                         wooError.message.includes('JSON'))) {
-                        window.open(data.redirectUrl, '_blank');
-                    }
-                    setIsAdded(true); // Zakładamy, że dodanie się udało mimo błędu
-                    setTimeout(() => setIsAdded(false), 2000);
-                }
-            } else {
-                setIsAdded(true);
-                setTimeout(() => setIsAdded(false), 2000);
-            }
+            // Produkt został dodany do koszyka
+            setIsAdded(true);
+            setTimeout(() => setIsAdded(false), 2000);
             
         } catch (err) {
             console.error('Błąd podczas dodawania do koszyka:', err);
