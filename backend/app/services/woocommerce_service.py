@@ -22,20 +22,45 @@ class WooCommerceService:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(WooCommerceService, cls).__new__(cls)
-            cls._instance.wcapi = API(
-                url=os.getenv('WOOCOMMERCE_STORE_URL'),
-                consumer_key=os.getenv('WOOCOMMERCE_CONSUMER_KEY'),
-                consumer_secret=os.getenv('WOOCOMMERCE_CONSUMER_SECRET'),
-                version="wc/v3"
-            )
-            logger.info("WooCommerce API initialized")
+            
+            # Sprawdź czy wszystkie wymagane zmienne środowiskowe są dostępne
+            store_url = os.getenv('WOOCOMMERCE_STORE_URL')
+            consumer_key = os.getenv('WOOCOMMERCE_CONSUMER_KEY')
+            consumer_secret = os.getenv('WOOCOMMERCE_CONSUMER_SECRET')
+            
+            if not all([store_url, consumer_key, consumer_secret]):
+                logger.error("Brak wymaganych zmiennych środowiskowych dla WooCommerce API")
+                cls._instance.wcapi = None
+                return cls._instance
+            
+            try:
+                cls._instance.wcapi = API(
+                    url=store_url,
+                    consumer_key=consumer_key,
+                    consumer_secret=consumer_secret,
+                    version="wc/v3"
+                )
+                logger.info("WooCommerce API initialized")
+            except Exception as e:
+                logger.error(f"Błąd podczas inicjalizacji WooCommerce API: {str(e)}")
+                cls._instance.wcapi = None
         return cls._instance
+
+    def is_available(self) -> bool:
+        """
+        Sprawdza czy WooCommerce API jest dostępne
+        """
+        return self.wcapi is not None
 
     @lru_cache(maxsize=100)
     async def get_spice_by_id(self, spice_id: int):
         """
         Pobiera konkretną przyprawę po ID z cache
         """
+        if not self.is_available():
+            logger.warning("WooCommerce API nie jest dostępne")
+            return None
+            
         try:
             product = self.wcapi.get(f"products/{spice_id}").json()
             return {
@@ -49,12 +74,16 @@ class WooCommerceService:
             }
         except Exception as e:
             logger.error(f"Error fetching spice {spice_id} from WooCommerce: {str(e)}")
-            raise
+            return None
 
     async def get_categories(self):
         """
         Pobiera kategorie z cache
         """
+        if not self.is_available():
+            logger.warning("WooCommerce API nie jest dostępne")
+            return []
+            
         current_time = time.time()
         
         # Jeśli cache jest aktualny, zwróć zapisane dane
@@ -77,12 +106,16 @@ class WooCommerceService:
             return categories
         except Exception as e:
             logger.error(f"Error fetching categories from WooCommerce: {str(e)}")
-            raise
+            return []
 
     async def get_all_spices(self):
         """
         Pobiera wszystkie produkty z kategorii przypraw z cache (asynchroniczna)
         """
+        if not self.is_available():
+            logger.warning("WooCommerce API nie jest dostępne")
+            return []
+            
         current_time = time.time()
         
         # Jeśli cache jest aktualny, zwróć zapisane dane
@@ -93,6 +126,8 @@ class WooCommerceService:
         try:
             # Pobierz wszystkie kategorie
             categories = await self.get_categories()
+            if not categories:
+                return []
             
             # Znajdź kategorię przypraw
             spice_categories = [
@@ -153,6 +188,10 @@ class WooCommerceService:
         Pobiera wszystkie przyprawy ze sklepu WooCommerce (synchroniczna)
         Używa cache jeśli dostępne
         """
+        if not self.is_available():
+            logger.warning("WooCommerce API nie jest dostępne")
+            return []
+            
         current_time = time.time()
         
         # Jeśli cache jest aktualny, zwróć zapisane dane
@@ -206,12 +245,9 @@ class WooCommerceService:
             WooCommerceService._spices = spices
             WooCommerceService._spices_timestamp = current_time
             
-            logger.info(f"Przetworzone przyprawy: {[spice['name'] for spice in spices]}")
             return spices
-            
         except Exception as e:
-            logger.error(f"Błąd podczas pobierania przypraw: {str(e)}")
-            logger.exception(e)  # To wyświetli pełny stack trace
+            logger.error(f"Error fetching spices from WooCommerce: {str(e)}")
             return []
     
     def get_spice_recommendations(self, ingredients: List[str]) -> Dict[str, Dict]:

@@ -110,6 +110,7 @@ function generateTypeScriptFile(products, keywordMapping) {
   return `import { Spice } from '../types/spices';
 
 // Produkty z WooCommerce - automatycznie wygenerowane
+// Ostatnia aktualizacja: ${new Date().toISOString()}
 export const AVAILABLE_SPICES: Spice[] = [
 ${formattedProducts}
 ];
@@ -158,22 +159,29 @@ ${formattedKeywordMapping}
  */
 async function main() {
   try {
-    console.log('Pobieranie produktów z WooCommerce API...');
+    console.log('=== Rozpoczęcie aktualizacji danych o przyprawach ===');
+    console.log(`Data: ${new Date().toISOString()}`);
+    
+    console.log('\nPobieranie produktów z WooCommerce API...');
     const products = await fetchProducts();
     console.log(`Pobrano ${products.length} produktów.`);
     
-    console.log('Generowanie mapowania słów kluczowych...');
+    console.log('\nGenerowanie mapowania słów kluczowych...');
     const keywordMapping = generateKeywordMapping(products);
+    console.log(`Wygenerowano mapowania dla ${Object.keys(keywordMapping).length} słów kluczowych.`);
     
-    console.log('Generowanie pliku TypeScript...');
+    console.log('\nGenerowanie pliku TypeScript...');
     const fileContent = generateTypeScriptFile(products, keywordMapping);
     
-    console.log(`Zapisywanie do pliku: ${outputFilePath}`);
+    console.log(`\nZapisywanie do pliku: ${outputFilePath}`);
     fs.writeFileSync(outputFilePath, fileContent);
     
-    console.log('Zakończono pomyślnie!');
+    console.log('\n=== Zakończono pomyślnie! ===');
+    console.log(`Czas zakończenia: ${new Date().toISOString()}`);
   } catch (error) {
-    console.error('Błąd:', error);
+    console.error('\n=== BŁĄD ===');
+    console.error('Szczegóły:', error);
+    console.error(`Czas wystąpienia błędu: ${new Date().toISOString()}`);
     process.exit(1);
   }
 }
