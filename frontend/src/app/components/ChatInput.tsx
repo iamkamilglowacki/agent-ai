@@ -1,17 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-// Unikamy importowania z ../config/api, zamiast tego definiujemy stałe endpointy
-// import { API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS } from '../config/api';
 import { Recipe } from '@/types/recipe';
 
-// Stały adres API i endpointy
-const API_URL = 'https://agent-ai.up.railway.app';
-const API_ENDPOINTS = {
-    ANALYZE_TEXT: `${API_URL}/api/analyze/text`,
-    ANALYZE_VOICE: `${API_URL}/api/analyze/voice`,
-    ANALYZE_IMAGE: `${API_URL}/api/analyze/image`,
-};
+// Usuwam sztywne ustawienie adresu API
+// const API_URL = 'https://agent-ai.up.railway.app';
+// const API_ENDPOINTS = {
+//     ANALYZE_TEXT: `${API_URL}/api/analyze/text`,
+//     ANALYZE_VOICE: `${API_URL}/api/analyze/voice`,
+//     ANALYZE_IMAGE: `${API_URL}/api/analyze/image`,
+// };
 
 interface ChatInputProps {
     onResponse: (data: { recipes: Recipe[] }, isPartial: boolean) => void;

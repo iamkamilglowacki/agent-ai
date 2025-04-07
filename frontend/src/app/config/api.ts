@@ -1,4 +1,5 @@
 // Używamy zmiennej środowiskowej lub domyślnego adresu API
+// W środowisku produkcyjnym powinno być ustawione NEXT_PUBLIC_API_URL na https://agent-ai.up.railway.app
 // Uwaga: W środowisku produkcyjnym powinno być ustawione NEXT_PUBLIC_API_URL na https://agent-ai.up.railway.app
 // lub preferowane jest używanie relatywnego URL (/api) jeśli działamy na tej samej domenie
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://agent-ai.up.railway.app';
