@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from app.services.text_analysis import analyze_text_query
 from app.services.voice_analysis import analyze_voice_query
@@ -17,6 +17,15 @@ class RecipeRequest(BaseModel):
     query: str
     calories: Optional[int] = None
     dietary_restrictions: Optional[List[str]] = None
+
+class RecipeItem(BaseModel):
+    title: str
+    ingredients: List[str]
+    steps: List[str]
+    spice_recommendations: Dict[str, Any]
+
+class MultipleRecipesResponse(BaseModel):
+    recipes: List[RecipeItem]
 
 @router.post("/analyze/text")
 async def analyze_text(request: RecipeRequest):

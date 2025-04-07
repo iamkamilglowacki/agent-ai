@@ -1,0 +1,13 @@
+{
+  "name": "woocommerce-products-fetcher",
+  "version": "1.0.0",
+  "description": "Skrypt do pobierania produktów z WooCommerce API",
+  "main": "fetch-woocommerce-products.js",
+  "scripts": {
+    "fetch": "node fetch-woocommerce-products.js"
+  },
+  "dependencies": {
+    "axios": "^0.27.2",
+    "dotenv": "^16.0.1"
+  }
+} 

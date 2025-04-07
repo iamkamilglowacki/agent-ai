@@ -5,6 +5,7 @@ from fastapi import HTTPException
 import logging
 from app.services.spice_mapping import spice_mapping_service
 import re
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ async def analyze_text_query(
     dietary_restrictions: Optional[List[str]] = None
 ) -> dict:
     """
-    Analizuje zapytanie użytkownika i zwraca sugerowany przepis używając GPT-4
+    Analizuje zapytanie użytkownika i zwraca sugerowane przepisy używając GPT-4
     """
     try:
         # Przygotuj kontekst zapytania
@@ -48,37 +49,117 @@ async def analyze_text_query(
             response: ChatCompletion = client.chat.completions.create(
                 model="gpt-4-turbo",
                 messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "system", "content": """Jesteś ekspertem kulinarnym. Generuj przepisy w języku polskim.
+                    Zwróć TRZY warianty przepisów w formacie JSON z następującą strukturą:
+                    {
+                      "recipes": [
+                        {
+                          "title": "Tytuł przepisu 1",
+                          "ingredients": ["składnik 1", "składnik 2", ...],
+                          "steps": ["krok 1", "krok 2", ...]
+                        },
+                        {
+                          "title": "Tytuł przepisu 2",
+                          "ingredients": ["składnik 1", "składnik 2", ...],
+                          "steps": ["krok 1", "krok 2", ...]
+                        },
+                        {
+                          "title": "Tytuł przepisu 3",
+                          "ingredients": ["składnik 1", "składnik 2", ...],
+                          "steps": ["krok 1", "krok 2", ...]
+                        }
+                      ]
+                    }
+                    
+                    WAŻNE: 
+                    1. Nie dodawaj przypraw ani mieszanek przyprawowych do składników - zostaną one dodane automatycznie
+                    2. Zaproponuj trzy RÓŻNE przepisy, które pasują do zapytania użytkownika
+                    3. Każdy przepis powinien być inny, ale pasujący do tematu zapytania"""},
                     {"role": "user", "content": user_message}
                 ],
                 temperature=0.7,
-                max_tokens=1000
+                max_tokens=2000
             )
             logger.info("Otrzymano odpowiedź z OpenAI API")
         except Exception as api_error:
             logger.error(f"Błąd podczas komunikacji z OpenAI API: {str(api_error)}")
             raise HTTPException(status_code=500, detail=f"Błąd podczas komunikacji z OpenAI: {str(api_error)}")
 
-        # Wyciągnij składniki z odpowiedzi
+        # Parsuj odpowiedź jako JSON
         recipe_text = response.choices[0].message.content
-        ingredients = await extract_ingredients_from_response(recipe_text)
+        try:
+            data = json.loads(recipe_text)
+            recipes_data = data.get("recipes", [])
+            
+            if not recipes_data:
+                # Jeśli nie ma recipes, to może być pojedynczy przepis
+                recipes_data = [data]
+        except json.JSONDecodeError:
+            # Jeśli odpowiedź nie jest poprawnym JSON, próbujemy wyodrębnić dane
+            logger.warning("Nie udało się sparsować odpowiedzi jako JSON, próbuję wyodrębnić dane ręcznie")
+            # Spróbuj znaleźć przepisy ręcznie
+            recipe_blocks = re.split(r'\n*(?:Przepis|Wariant) \d+:', recipe_text)
+            if len(recipe_blocks) > 1:
+                recipe_blocks = recipe_blocks[1:]  # Usuń pierwszy element, który jest pusty lub wprowadzeniem
+            else:
+                # Jeśli nie znaleziono podziału, traktuj całość jako jeden przepis
+                recipe_blocks = [recipe_text]
+                
+            recipes_data = []
+            for block in recipe_blocks:
+                title_match = re.search(r'(?:Tytuł:|#)(.*?)(?:\n|$)', block)
+                title = title_match.group(1).strip() if title_match else "Przepis"
+                
+                ingredients = await extract_ingredients_from_response(block)
+                
+                steps = []
+                steps_section = re.search(r'(?:Przygotowanie:|Kroki:|Sposób przygotowania:)\n(.*?)(?:\n\n|$)', block, re.DOTALL)
+                if steps_section:
+                    steps_text = steps_section.group(1)
+                    steps = [step.strip() for step in re.split(r'\d+\.\s*', steps_text) if step.strip()]
+                
+                recipes_data.append({
+                    "title": title,
+                    "ingredients": ingredients,
+                    "steps": steps
+                })
+            
+            # Jeśli nadal nie mamy przepisów, utwórz domyślny
+            if not recipes_data:
+                recipes_data = [{
+                    "title": "Przepis",
+                    "ingredients": [],
+                    "steps": ["Nie udało się wygenerować szczegółów przepisu"]
+                }]
 
-        # Pobierz rekomendacje przypraw dla każdego składnika
-        spice_recommendations: Dict[str, Dict] = {}
-        for ingredient in ingredients:
-            recommendation = await spice_mapping_service.get_spice_recommendation(ingredient)
-            if recommendation:
-                spice_recommendations[ingredient] = recommendation
+        # Lista na przetworzone przepisy
+        processed_recipes = []
+        
+        # Przetwórz każdy przepis
+        for recipe_data in recipes_data[:3]:  # Bierzemy maksymalnie 3 przepisy
+            # Pobierz rekomendacje przypraw dla każdego składnika
+            spice_recommendations = await spice_mapping_service.get_spice_recommendations(recipe_data.get("ingredients", []))
+            
+            # Dodaj przetworzone dane
+            processed_recipes.append({
+                "title": recipe_data.get("title", "Przepis"),
+                "ingredients": recipe_data.get("ingredients", []),
+                "steps": recipe_data.get("steps", []),
+                "spice_recommendations": spice_recommendations
+            })
+        
+        # Jeśli mamy mniej niż 3 przepisy, dodaj przykładowe
+        while len(processed_recipes) < 3:
+            processed_recipes.append({
+                "title": f"Alternatywny przepis {len(processed_recipes) + 1}",
+                "ingredients": ["Składnik 1", "Składnik 2"],
+                "steps": ["Krok 1", "Krok 2"],
+                "spice_recommendations": {}
+            })
 
         # Zwróć odpowiedź
         return {
-            "recipe": recipe_text,
-            "spice_recommendations": spice_recommendations,
-            "tokens_used": {
-                "prompt_tokens": response.usage.prompt_tokens,
-                "completion_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens
-            }
+            "recipes": processed_recipes
         }
     except HTTPException as he:
         logger.error(f"HTTP Error: {str(he)}")

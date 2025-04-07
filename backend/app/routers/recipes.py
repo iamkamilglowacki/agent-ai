@@ -11,36 +11,6 @@ router = APIRouter(
     tags=["recipes"]
 )
 
-def load_sample_recipes() -> List[Dict[str, Any]]:
-    """Ładuje przykładowe przepisy z pliku"""
-    try:
-        sample_recipes_path = os.path.join(os.path.dirname(__file__), "../data/sample_recipes.json")
-        with open(sample_recipes_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"Błąd podczas ładowania przepisów: {e}")
-        return []
-
-@router.get("/")
-async def get_recipes():
-    """
-    Pobiera listę wszystkich przepisów
-    """
-    recipes = load_sample_recipes()
-    if not recipes:
-        raise HTTPException(status_code=404, detail="Nie znaleziono przepisów")
-    return {"recipes": recipes}
-
-@router.get("/{recipe_id}")
-async def get_recipe(recipe_id: int):
-    """
-    Pobiera konkretny przepis po ID
-    """
-    recipes = load_sample_recipes()
-    if recipe_id < 0 or recipe_id >= len(recipes):
-        raise HTTPException(status_code=404, detail="Przepis nie został znaleziony")
-    return recipes[recipe_id]
-
 class RecipeRequest(BaseModel):
     query: str
 

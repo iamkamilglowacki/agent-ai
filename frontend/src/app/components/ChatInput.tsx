@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { API_ENDPOINTS } from '../config/api';
 
 interface ChatInputProps {
-    onResponse: (recipe: string) => void;
+    onResponse: (data: any) => void;
     onError: (error: string) => void;
 }
 
@@ -35,7 +35,7 @@ export default function ChatInput({ onResponse, onError }: ChatInputProps) {
             }
 
             const data = await response.json();
-            onResponse(data.recipe);
+            onResponse(data);
             setQuery('');
         } catch (error) {
             onError(error instanceof Error ? error.message : 'Wystąpił nieznany błąd');

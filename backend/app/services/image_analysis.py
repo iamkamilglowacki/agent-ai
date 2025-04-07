@@ -2,27 +2,16 @@ from app.core.openai_config import client
 import base64
 from fastapi import UploadFile, HTTPException
 import logging
+import io
+from fastapi.responses import StreamingResponse
+import json
+import asyncio
 
 logger = logging.getLogger(__name__)
 
-async def encode_image(file: UploadFile) -> str:
+async def analyze_image_query(file: UploadFile) -> StreamingResponse:
     """
-    Konwertuje plik obrazu na base64
-    """
-    try:
-        # Upewnij się, że wskaźnik jest na początku pliku
-        await file.seek(0)
-        content = await file.read()
-        if not content:
-            raise HTTPException(status_code=400, detail="Pusty plik")
-        return base64.b64encode(content).decode('utf-8')
-    except Exception as e:
-        logger.error(f"Błąd podczas kodowania obrazu: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Błąd podczas przetwarzania obrazu: {str(e)}")
-
-async def analyze_image_query(file: UploadFile) -> dict:
-    """
-    Analizuje zdjęcie i rozpoznaje składniki używając GPT-4 Vision
+    Analizuje zdjęcie i rozpoznaje składniki używając GPT-4 Turbo
     """
     try:
         logger.info(f"Rozpoczynam analizę obrazu. Content type: {file.content_type}")
@@ -32,23 +21,19 @@ async def analyze_image_query(file: UploadFile) -> dict:
             raise HTTPException(status_code=400, detail="Plik musi być obrazem")
         
         # Sprawdź rozmiar pliku
-        await file.seek(0)
         content = await file.read()
         file_size = len(content)
-        await file.seek(0)  # Reset pozycji pliku
         
         logger.info(f"Rozmiar pliku: {file_size} bajtów")
         
         if file_size > 20 * 1024 * 1024:  # 20MB limit
             logger.error(f"Plik jest za duży: {file_size} bajtów")
             raise HTTPException(status_code=400, detail="Plik jest za duży (max 20MB)")
-            
-        # Konwertuj obraz na base64
-        logger.info("Rozpoczynam konwersję obrazu na base64")
-        base64_image = await encode_image(file)
-        logger.info("Konwersja na base64 zakończona")
         
-        # Przygotuj prompt dla GPT-4 Vision
+        # Zakoduj obraz w base64
+        base64_encoded = base64.b64encode(content).decode('utf-8')
+        
+        # Wysyłamy plik binarny bezpośrednio do OpenAI
         logger.info("Wysyłam zapytanie do OpenAI API")
         try:
             response = client.chat.completions.create(
@@ -58,9 +43,49 @@ async def analyze_image_query(file: UploadFile) -> dict:
                         "role": "system",
                         "content": """Jesteś asystentem kulinarnym. Przeanalizuj zdjęcie i:
                         1. Zidentyfikuj widoczne składniki
-                        2. Zaproponuj przepis wykorzystujący te składniki
-                        3. Podaj alternatywne propozycje dań
-                        Odpowiedz w języku polskim."""
+                        2. Zaproponuj TRZY RÓŻNE przepisy wykorzystujące te składniki
+                        3. Dla każdego przepisu podaj:
+                           - tytuł
+                           - listę składników
+                           - kroki przygotowania
+                        
+                        Odpowiedz w języku polskim.
+                        
+                        STRUKTURA ODPOWIEDZI:
+                        Na zdjęciu widać: [lista zidentyfikowanych składników]
+                        
+                        PRZEPIS 1:
+                        Tytuł: [tytuł przepisu]
+                        Składniki:
+                        - składnik 1
+                        - składnik 2
+                        ...
+                        Przygotowanie:
+                        1. krok 1
+                        2. krok 2
+                        ...
+                        
+                        PRZEPIS 2:
+                        Tytuł: [tytuł przepisu]
+                        Składniki:
+                        - składnik 1
+                        - składnik 2
+                        ...
+                        Przygotowanie:
+                        1. krok 1
+                        2. krok 2
+                        ...
+                        
+                        PRZEPIS 3:
+                        Tytuł: [tytuł przepisu]
+                        Składniki:
+                        - składnik 1
+                        - składnik 2
+                        ...
+                        Przygotowanie:
+                        1. krok 1
+                        2. krok 2
+                        ..."""
                     },
                     {
                         "role": "user",
@@ -68,31 +93,64 @@ async def analyze_image_query(file: UploadFile) -> dict:
                             {
                                 "type": "image_url",
                                 "image_url": {
-                                    "url": f"data:image/jpeg;base64,{base64_image}"
+                                    "url": f"data:{file.content_type};base64,{base64_encoded}",
+                                    "detail": "low"
                                 }
                             },
                             {
                                 "type": "text",
-                                "text": "Jakie danie mogę przygotować z tych składników?"
+                                "text": "Jakie trzy różne dania mogę przygotować z tych składników?"
                             }
                         ]
                     }
                 ],
-                max_tokens=1000
+                max_tokens=1500,
+                stream=True,
+                temperature=0.7
             )
-            logger.info("Otrzymano odpowiedź z OpenAI API")
+            
+            async def generate():
+                full_response = ""
+                try:
+                    for chunk in response:
+                        if hasattr(chunk.choices[0].delta, 'content') and chunk.choices[0].delta.content:
+                            content = chunk.choices[0].delta.content
+                            full_response += content
+                            # Wysyłamy każdy fragment jako prawidłowy JSON
+                            response_chunk = {
+                                "analysis": content,
+                                "status": "streaming"
+                            }
+                            yield json.dumps(response_chunk, ensure_ascii=False) + "\n"
+                            await asyncio.sleep(0.01)
+                    
+                    # Końcowa odpowiedź
+                    final_response = {
+                        "analysis": full_response,
+                        "status": "completed",
+                        "tokens_used": {
+                            "prompt_tokens": getattr(response, 'usage', {}).get('prompt_tokens', 0),
+                            "completion_tokens": getattr(response, 'usage', {}).get('completion_tokens', 0),
+                            "total_tokens": getattr(response, 'usage', {}).get('total_tokens', 0)
+                        }
+                    }
+                    yield json.dumps(final_response, ensure_ascii=False) + "\n"
+                except Exception as e:
+                    logger.error(f"Błąd podczas generowania odpowiedzi: {str(e)}")
+                    yield json.dumps({"error": str(e)}, ensure_ascii=False) + "\n"
+            
+            return StreamingResponse(
+                generate(),
+                media_type="application/x-ndjson",
+                headers={
+                    "X-Content-Type-Options": "nosniff",
+                    "Cache-Control": "no-cache"
+                }
+            )
+            
         except Exception as api_error:
             logger.error(f"Błąd podczas komunikacji z OpenAI API: {str(api_error)}")
             raise HTTPException(status_code=500, detail=f"Błąd podczas komunikacji z OpenAI: {str(api_error)}")
-        
-        return {
-            "analysis": response.choices[0].message.content,
-            "tokens_used": {
-                "prompt_tokens": response.usage.prompt_tokens,
-                "completion_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens
-            }
-        }
     except HTTPException as he:
         logger.error(f"HTTP Error: {str(he)}")
         raise he

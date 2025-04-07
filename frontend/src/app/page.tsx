@@ -6,20 +6,85 @@ import VoiceInput from './components/VoiceInput';
 import ImageInput from './components/ImageInput';
 import RecipeCard from './components/RecipeCard';
 import { MicrophoneIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { Spice } from '../types/spices';
+
+interface Recipe {
+  title: string;
+  ingredients: string[];
+  steps: string[];
+  spice_recommendations: {
+    recipe_blend?: Spice;
+  };
+}
 
 export default function Home() {
-  const [recipe, setRecipe] = useState<string | null>(null);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
 
-  const handleResponse = (response: string) => {
-    setRecipe(response);
-    setError(null);
+  const handleResponse = (response: any) => {
+    try {
+      if (typeof response === 'string') {
+        // Jeśli odpowiedź jest tekstem, podziel ją na sekcje
+        const lines = response.split('\n').filter(line => line.trim());
+        
+        // Znajdź sekcje
+        let currentSection = '';
+        const ingredients: string[] = [];
+        const steps: string[] = [];
+        
+        lines.forEach(line => {
+          if (line.toLowerCase().includes('składniki:')) {
+            currentSection = 'ingredients';
+          } else if (line.toLowerCase().includes('przygotowanie:')) {
+            currentSection = 'steps';
+          } else if (line.trim()) {
+            if (currentSection === 'ingredients') {
+              // Usuń punktory i białe znaki
+              const ingredient = line.replace(/^[-•*]\s*/, '').trim();
+              if (ingredient) ingredients.push(ingredient);
+            } else if (currentSection === 'steps') {
+              // Usuń numerację i białe znaki
+              const step = line.replace(/^\d+\.\s*/, '').trim();
+              if (step) steps.push(step);
+            }
+          }
+        });
+
+        setRecipes([{
+          title: "Analiza składników",
+          ingredients: ingredients,
+          steps: steps.length > 0 ? steps : [response],
+          spice_recommendations: {}
+        }]);
+      } else if (response && typeof response === 'object') {
+        // Sprawdź format odpowiedzi
+        if (response.recipes && Array.isArray(response.recipes)) {
+          // Nowy format z wieloma przepisami
+          setRecipes(response.recipes);
+        } else if (response.recipe) {
+          // Stary format z jednym przepisem
+          setRecipes([response.recipe]);
+        } else if (response.title && Array.isArray(response.ingredients) && Array.isArray(response.steps)) {
+          // Pojedynczy przepis jako obiekt
+          setRecipes([response]);
+        } else {
+          throw new Error('Nieprawidłowa struktura przepisu');
+        }
+      } else {
+        throw new Error('Nieoczekiwany format odpowiedzi');
+      }
+      setError(null);
+    } catch (err) {
+      console.error('Error parsing recipe:', err);
+      setError('Nieprawidłowy format odpowiedzi');
+      setRecipes([]);
+    }
   };
 
   const handleError = (error: string) => {
     setError(error);
-    setRecipe(null);
+    setRecipes([]);
   };
 
   const handleImageUpload = (imageUrl: string) => {
@@ -27,109 +92,68 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Nagłówek */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto py-6 px-4">
-          <h1 className="text-2xl font-medium text-gray-900 text-center">
-            Łasuch
-          </h1>
-        </div>
-      </div>
-
-      {/* Główny kontener czatu */}
-      <div className="max-w-6xl mx-auto h-[calc(100vh-80px)] flex flex-col">
-        {/* Obszar wiadomości */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Powitalna wiadomość */}
-          <div className="flex items-start max-w-4xl mx-auto">
-            <div className="flex-1">
-              <div className="bg-white rounded-2xl shadow-sm p-6">
-                <p className="text-gray-700 leading-relaxed">
-                  Cześć! Jestem Łasuch, Twój osobisty ekspert kulinarny. Opisz, co chcesz przygotować lub prześlij zdjęcie składników, 
-                  a ja zaproponuję Ci idealne przepisy.
-                </p>
-              </div>
-            </div>
+    <div className="min-h-screen flex flex-col">
+      <main className="flex-1 overflow-y-auto">
+        <div className="container mx-auto py-8">
+          {/* Nagłówek */}
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-green-700">
+              Twój Osobisty Asystent Kulinarny
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Opisz, co chcesz przygotować lub prześlij zdjęcie składników
+            </p>
           </div>
 
-          {/* Wyświetlanie wgranego zdjęcia */}
-          {uploadedImage && (
-            <div className="flex items-start max-w-4xl mx-auto">
-              <div className="flex-1">
-                <div className="bg-white rounded-2xl shadow-sm p-4">
-                  <img 
-                    src={uploadedImage} 
-                    alt="Wgrane składniki" 
-                    className="w-24 h-24 object-cover rounded-lg"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Wyświetlanie błędu */}
-          {error && (
-            <div className="flex items-start max-w-4xl mx-auto">
-              <div className="flex-1">
-                <div className="bg-red-50 rounded-2xl p-6">
-                  <p className="text-red-700">{error}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Wyświetlanie przepisu */}
-          {recipe && (
-            <div className="flex items-start w-full">
-              <div className="flex-1">
-                <RecipeCard recipe={recipe} />
-              </div>
+          {/* Wyświetlanie przepisów */}
+          {recipes.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-8">
+              {recipes.map((recipe, index) => (
+                <RecipeCard key={index} recipe={recipe} />
+              ))}
             </div>
           )}
         </div>
+      </main>
 
-        {/* Panel wprowadzania */}
-        <div className="border-t bg-white p-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex gap-4 justify-between items-center">
-              <div className="flex-1">
-                <ChatInput
-                  onResponse={handleResponse}
-                  onError={handleError}
-                />
-              </div>
-              <div className="flex gap-3">
-                <button 
-                  className="p-2 text-gray-600 hover:text-green-600 transition-colors"
-                  onClick={() => {
-                    const voiceInput = document.querySelector('[data-voice-input]') as HTMLButtonElement;
-                    voiceInput?.click();
-                  }}
-                >
-                  <MicrophoneIcon className="w-6 h-6" />
-                </button>
-                <button 
-                  className="p-2 text-gray-600 hover:text-green-600 transition-colors"
-                  onClick={() => {
-                    const imageInput = document.querySelector('[data-image-input]') as HTMLButtonElement;
-                    imageInput?.click();
-                  }}
-                >
-                  <PhotoIcon className="w-6 h-6" />
-                </button>
-                <div className="hidden">
-                  <VoiceInput
-                    onResponse={handleResponse}
-                    onError={handleError}
-                  />
-                  <ImageInput
-                    onResponse={handleResponse}
-                    onError={handleError}
-                    onImageUpload={handleImageUpload}
-                  />
-                </div>
-              </div>
+      {/* Panel wprowadzania */}
+      <div className="border-t bg-white p-6 sticky bottom-0">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex gap-4 justify-between items-center">
+            <div className="flex-1">
+              <ChatInput
+                onResponse={handleResponse}
+                onError={handleError}
+              />
+            </div>
+            <div className="flex gap-3">
+              <button 
+                className="p-2 text-gray-600 hover:text-green-600 transition-colors"
+                onClick={() => {
+                  const voiceInput = document.querySelector('[data-voice-input]') as HTMLButtonElement;
+                  voiceInput?.click();
+                }}
+              >
+                <MicrophoneIcon className="w-6 h-6" />
+              </button>
+              <button 
+                className="p-2 text-gray-600 hover:text-green-600 transition-colors"
+                onClick={() => {
+                  const imageInput = document.querySelector('[data-image-input]') as HTMLButtonElement;
+                  imageInput?.click();
+                }}
+              >
+                <PhotoIcon className="w-6 h-6" />
+              </button>
+              <VoiceInput
+                onResponse={handleResponse}
+                onError={handleError}
+              />
+              <ImageInput
+                onResponse={handleResponse}
+                onError={handleError}
+                onImageUpload={handleImageUpload}
+              />
             </div>
           </div>
         </div>

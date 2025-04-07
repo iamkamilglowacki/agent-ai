@@ -5,4 +5,5 @@ export const API_ENDPOINTS = {
     ANALYZE_VOICE: `${API_URL}/api/analyze/voice`,
     ANALYZE_IMAGE: `${API_URL}/api/analyze/image`,
     SEARCH_RECIPES: `${API_URL}/api/recipes/search`,
+    GET_SPICES: `${API_URL}/api/spices`,
 }; 

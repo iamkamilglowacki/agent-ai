@@ -7,57 +7,47 @@ interface SpiceRecommendationProps {
     spice: Spice;
 }
 
-export function SpiceRecommendation({ spice }: SpiceRecommendationProps) {
-    const [isAdding, setIsAdding] = useState(false);
-    const [addedToCart, setAddedToCart] = useState(false);
+export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice }) => {
+    const [isAdded, setIsAdded] = useState(false);
 
-    const handleAddToCart = async () => {
-        try {
-            setIsAdding(true);
-            const response = await fetch(spice.add_to_cart_url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('Nie udało się dodać produktu do koszyka');
-            }
-
-            setAddedToCart(true);
-            setTimeout(() => setAddedToCart(false), 3000); // Reset po 3 sekundach
-        } catch (error) {
-            console.error('Błąd podczas dodawania do koszyka:', error);
-        } finally {
-            setIsAdding(false);
-        }
+    const handleAddToCart = () => {
+        setIsAdded(true);
+        setTimeout(() => setIsAdded(false), 2000);
     };
 
     return (
-        <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-green-100">
-            <div className="flex-grow">
-                <h4 className="font-medium text-gray-900">{spice.name}</h4>
-                <p className="text-sm text-gray-600 mb-2">{spice.description}</p>
-                <span className="text-green-700 font-medium">{spice.price}</span>
+        <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm">
+            <div className="flex items-center space-x-4">
+                {spice.image_url && (
+                    <img 
+                        src={spice.image_url} 
+                        alt={spice.name}
+                        className="w-16 h-16 object-cover rounded-lg" 
+                    />
+                )}
+                <div>
+                    <h4 className="font-medium text-gray-900">{spice.name}</h4>
+                    <p className="text-sm text-gray-600 mt-1">{spice.description}</p>
+                    <p className="text-green-600 font-medium mt-2">{spice.price}</p>
+                </div>
             </div>
-            <button
-                onClick={handleAddToCart}
-                disabled={isAdding || addedToCart}
-                className={`ml-4 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    addedToCart
+            <a
+                href={spice.add_to_cart_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`ml-4 px-4 py-2 rounded-lg transition-all duration-200 ${
+                    isAdded
                         ? 'bg-green-100 text-green-700'
-                        : isAdding
-                        ? 'bg-gray-100 text-gray-500'
                         : 'bg-green-600 text-white hover:bg-green-700'
                 }`}
+                onClick={(e) => {
+                    e.preventDefault();
+                    handleAddToCart();
+                    window.open(spice.add_to_cart_url, '_blank');
+                }}
             >
-                {addedToCart
-                    ? '✓ Dodano'
-                    : isAdding
-                    ? 'Dodawanie...'
-                    : 'Dodaj do koszyka'}
-            </button>
+                {isAdded ? 'Dodano!' : 'Dodaj do koszyka'}
+            </a>
         </div>
     );
-} 
+}; 
