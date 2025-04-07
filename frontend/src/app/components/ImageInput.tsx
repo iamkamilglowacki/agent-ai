@@ -129,27 +129,9 @@ export default function ImageInput({ onResponse, onError, onImageUpload, setIsLo
 
             console.log('Wysyłam obraz do API', { endpoint: API_ENDPOINTS.ANALYZE_IMAGE });
 
-            // Sprawdź czy API jest dostępne przed wysłaniem
-            try {
-                const checkResponse = await fetch(API_ENDPOINTS.ANALYZE_IMAGE, { 
-                    method: 'HEAD',
-                    cache: 'no-cache'
-                }).catch(error => {
-                    console.error('Błąd przy sprawdzaniu dostępności API:', error);
-                    throw new Error(`Serwer analizy obrazów jest niedostępny. Sprawdź połączenie internetowe i stan serwera: ${error.message || ''}`);
-                });
-                
-                if (!checkResponse.ok) {
-                    throw new Error(`Serwer analizy obrazów zwrócił błąd: ${checkResponse.status} ${checkResponse.statusText}`);
-                }
-            } catch (error) {
-                console.error('Błąd sprawdzania API:', error);
-                throw error;
-            }
-
             // Wysyłanie z timeout'em dla lepszej obsługi błędów połączenia
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
             
             try {
                 const response = await fetch(API_ENDPOINTS.ANALYZE_IMAGE, {
@@ -158,7 +140,8 @@ export default function ImageInput({ onResponse, onError, onImageUpload, setIsLo
                         'Accept': 'application/x-ndjson',
                     },
                     body: formData,
-                    signal: controller.signal
+                    signal: controller.signal,
+                    credentials: 'include' // Dodajemy credentials dla CORS
                 });
 
                 clearTimeout(timeoutId);
