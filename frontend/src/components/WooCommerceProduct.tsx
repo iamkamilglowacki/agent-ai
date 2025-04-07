@@ -16,22 +16,31 @@ interface WooCommerceProductProps {
 const SHOP_URL = 'https://flavorinthejar.com';
 
 // Funkcja do odświeżania mini-koszyka
-const refreshMiniCart = () => {
-    // Znajdujemy wszystkie elementy koszyka na stronie
-    const miniCartElements = document.querySelectorAll('.mini-cart-count');
-    
-    // Pobieramy aktualny stan koszyka
+const refreshMiniCart = (fragments?: any) => {
+    // Jeśli mamy fragmenty z WooCommerce, użyjmy ich
+    if (fragments && fragments.cart_count) {
+        const miniCartElements = document.querySelectorAll('.mini-cart-count');
+        miniCartElements.forEach(element => {
+            if (element instanceof HTMLElement) {
+                element.innerText = fragments.cart_count.toString();
+                element.classList.add('cart-updated');
+                setTimeout(() => element.classList.remove('cart-updated'), 1000);
+            }
+        });
+        return;
+    }
+
+    // Jeśli nie mamy fragmentów, pobierz stan koszyka z API
     fetch('/api/cart/get', {
         method: 'GET',
         credentials: 'include'
     })
     .then(response => response.json())
     .then(data => {
-        // Aktualizujemy licznik produktów w koszyku
+        const miniCartElements = document.querySelectorAll('.mini-cart-count');
         miniCartElements.forEach(element => {
             if (element instanceof HTMLElement) {
                 element.innerText = data.count?.toString() || '0';
-                // Dodajemy animację
                 element.classList.add('cart-updated');
                 setTimeout(() => element.classList.remove('cart-updated'), 1000);
             }
@@ -44,11 +53,27 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
     const [loading, setLoading] = useState(false);
     const [added, setAdded] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [cartCount, setCartCount] = useState<number | null>(null);
 
-    // Po zamontowaniu komponentu, sprawdzamy stan koszyka
+    // Nasłuchuj na zdarzenie added_to_cart z WooCommerce
     useEffect(() => {
-        // Możemy sprawdzić stan koszyka, jeśli potrzebujemy
+        const handleAddedToCart = (e: Event, fragments: any, cartHash: string, button?: HTMLElement) => {
+            console.log('Produkt dodany do koszyka:', fragments);
+            refreshMiniCart(fragments);
+            
+            // Jeśli mamy przycisk, dodaj animację
+            if (button) {
+                button.classList.add('added-to-cart');
+                setTimeout(() => button.classList.remove('added-to-cart'), 1000);
+            }
+        };
+
+        // Dodaj nasłuchiwanie na zdarzenie
+        document.body.addEventListener('added_to_cart', handleAddedToCart as EventListener);
+
+        // Usuń nasłuchiwanie przy odmontowaniu komponentu
+        return () => {
+            document.body.removeEventListener('added_to_cart', handleAddedToCart as EventListener);
+        };
     }, []);
 
     const handleAddToCart = async (e: React.MouseEvent) => {
@@ -68,7 +93,7 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
             const response = await fetch('/api/add-to-cart', {
                 method: 'POST',
                 body: formData,
-                credentials: 'include' // Ważne dla obsługi ciasteczek
+                credentials: 'include'
             });
             
             // Sprawdzamy czy odpowiedź jest JSON
@@ -97,15 +122,15 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
             setAdded(true);
             setTimeout(() => setAdded(false), 2000);
             
-            // Odświeżamy stan koszyka
-            refreshMiniCart();
-            
-            // Dodajemy animację do przycisku
-            const button = document.querySelector(`button[data-product-id="${product.id}"]`);
-            if (button) {
-                button.classList.add('added-to-cart');
-                setTimeout(() => button.classList.remove('added-to-cart'), 1000);
-            }
+            // Wywołaj zdarzenie added_to_cart
+            const event = new CustomEvent('added_to_cart', {
+                detail: {
+                    fragments: data.cartData,
+                    cart_hash: '',
+                    button: document.querySelector(`button[data-product-id="${product.id}"]`)
+                }
+            });
+            document.body.dispatchEvent(event);
             
         } catch (err) {
             console.error('Błąd podczas dodawania do koszyka:', err);

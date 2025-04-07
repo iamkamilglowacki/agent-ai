@@ -59,7 +59,6 @@ export async function POST(request: Request) {
 
     // Zbierz wszystkie nagłówki Set-Cookie
     const setCookieHeaders: string[] = [];
-    // Pobieramy wszystkie nagłówki Set-Cookie ręcznie, bo Headers.getAll nie jest dostępne
     wooResponse.headers.forEach((value, key) => {
       if (key.toLowerCase() === 'set-cookie') {
         setCookieHeaders.push(value);
@@ -106,15 +105,33 @@ export async function POST(request: Request) {
       );
     }
 
-    // Tworzymy odpowiedź z success
-    const response = NextResponse.json(
-      { 
-        success: true, 
-        message: 'Produkt dodany do koszyka',
-        cartData: responseData || null
+    // Pobierz aktualny stan koszyka
+    const cartResponse = await fetch(wooCommerceUrl + '?wc-ajax=get_cart_totals', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'Cookie': cookieHeader,
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'User-Agent': 'Mozilla/5.0 (compatible; FlavoAI/1.0)',
+        'Origin': 'https://smakosz.flavorinthejar.com',
+        'Referer': 'https://smakosz.flavorinthejar.com/',
+        'X-Requested-With': 'XMLHttpRequest'
       },
-      { status: 200 }
-    );
+      credentials: 'include'
+    });
+
+    const cartData = await cartResponse.json();
+
+    // Tworzymy odpowiedź w formacie WooCommerce
+    const response = NextResponse.json({
+      fragments: {
+        cart_count: cartData.cart_contents_count || 0,
+        cart_total: cartData.cart_total || '0.00 zł',
+        ...responseData
+      },
+      cart_hash: responseData?.cart_hash || '',
+      cart_quantity: cartData.cart_contents_count || 0
+    });
 
     // Przekazujemy wszystkie ciasteczka z odpowiedzi WooCommerce do klienta
     setCookieHeaders.forEach((cookieHeader: string) => {
