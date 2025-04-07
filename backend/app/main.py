@@ -29,6 +29,7 @@ allowed_origins = [
     "https://agent-ai-git-main-kamils-projects-887b8705.vercel.app",  # URL główny Vercel
     "https://agent-ai-staging.up.railway.app",  # URL stagingowy Railway
     "https://agent-ai-production.up.railway.app",  # URL produkcyjny Railway
+    "https://smakosz.flavorinthejar.com",  # Subdomena smakosz
     os.getenv("FRONTEND_URL", "")  # URL z zmiennej środowiskowej
 ]
 
