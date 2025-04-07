@@ -30,6 +30,7 @@ allowed_origins = [
     "https://agent-ai-staging.up.railway.app",  # URL stagingowy Railway
     "https://agent-ai-production.up.railway.app",  # URL produkcyjny Railway
     "https://smakosz.flavorinthejar.com",  # Subdomena smakosz
+    "http://smakosz.flavorinthejar.com",  # Subdomena smakosz (HTTP)
     os.getenv("FRONTEND_URL", "")  # URL z zmiennej środowiskowej
 ]
 
@@ -40,7 +41,7 @@ logger.info(f"Configured CORS allowed origins: {allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"],  # Tymczasowo zezwól na wszystkie pochodzenia
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
