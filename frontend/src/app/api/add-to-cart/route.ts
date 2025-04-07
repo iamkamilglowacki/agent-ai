@@ -44,7 +44,8 @@ export async function POST(request: Request) {
         'Accept': 'application/json, text/javascript, */*; q=0.01',
         'User-Agent': 'Mozilla/5.0 (compatible; FlavoAI/1.0)',
         'Origin': 'https://smakosz.flavorinthejar.com',
-        'Referer': 'https://smakosz.flavorinthejar.com/'
+        'Referer': 'https://smakosz.flavorinthejar.com/',
+        'X-Requested-With': 'XMLHttpRequest'
       },
       body: wooFormData.toString(),
       credentials: 'include'
