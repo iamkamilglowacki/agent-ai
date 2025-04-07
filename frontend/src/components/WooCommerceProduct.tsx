@@ -38,22 +38,55 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
             formData.append('quantity', '1');
             
             console.log('Wysyłam żądanie POST do API proxy');
+            
+            // Wykonujemy żądanie do naszego API
             const response = await fetch('/api/add-to-cart', {
                 method: 'POST',
-                body: formData,
+                body: formData
             });
-
-            console.log('Odpowiedź:', response.status, response.statusText);
-            const responseData = await response.json();
-            console.log('Dane odpowiedzi:', responseData);
-
+            
+            const data = await response.json();
+            
             if (!response.ok) {
-                throw new Error(responseData.error || `Nie udało się dodać produktu do koszyka. Status: ${response.status}`);
+                throw new Error(data.error || 'Wystąpił błąd podczas dodawania do koszyka');
             }
-
-            setAdded(true);
-            console.log('Produkt dodany do koszyka');
-            setTimeout(() => setAdded(false), 2000);
+            
+            console.log('Otrzymano dane z API:', data);
+            
+            if (data.redirectUrl) {
+                // Wykonujemy bezpośrednie żądanie AJAX do WooCommerce
+                try {
+                    const wooCommerceResponse = await fetch(data.redirectUrl, {
+                        method: 'GET',
+                        credentials: 'include',
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    const wooCommerceData = await wooCommerceResponse.json();
+                    console.log('Odpowiedź z WooCommerce:', wooCommerceData);
+                    
+                    if (wooCommerceData.error) {
+                        throw new Error(wooCommerceData.error);
+                    }
+                    
+                    setAdded(true);
+                    setTimeout(() => setAdded(false), 2000);
+                } catch (wooError) {
+                    console.error('Błąd WooCommerce:', wooError);
+                    // Jeśli wystąpi błąd CORS, spróbujmy otworzyć w nowej karcie
+                    if (wooError instanceof Error && wooError.message.includes('CORS')) {
+                        window.open(data.redirectUrl, '_blank');
+                    }
+                    setAdded(true); // Zakładamy, że dodanie się udało mimo błędu CORS
+                    setTimeout(() => setAdded(false), 2000);
+                }
+            } else {
+                setAdded(true);
+                setTimeout(() => setAdded(false), 2000);
+            }
+            
         } catch (err) {
             console.error('Błąd podczas dodawania do koszyka:', err);
             setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas dodawania do koszyka');
