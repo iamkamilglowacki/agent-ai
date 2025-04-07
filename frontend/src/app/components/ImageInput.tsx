@@ -1,101 +1,328 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { API_ENDPOINTS } from '../config/api';
-import Image from 'next/image';
+import React, { useRef, useState } from 'react';
+import { API_URL } from '@/config/api';
+import { getSpiceRecommendationByIngredients } from '@/services/spiceRecommendations';
+import { Recipe } from '@/types/recipe';
 
 interface ImageInputProps {
-    onResponse: (analysis: string) => void;
+    onResponse: (response: { recipes: Recipe[] }) => void;
     onError: (error: string) => void;
+    onImageUpload: (imageUrl: string) => void;
 }
 
-export default function ImageInput({ onResponse, onError }: ImageInputProps) {
-    const [isLoading, setIsLoading] = useState(false);
-    const [preview, setPreview] = useState<string | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (typeof window === 'undefined') return;
+const optimizeImage = async (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
         
-        const file = e.target.files?.[0];
-        if (file) {
-            if (!file.type.startsWith('image/')) {
-                onError('Proszę wybrać plik obrazu');
-                return;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Zmniejszone maksymalne wymiary
+            const MAX_WIDTH = 512;
+            const MAX_HEIGHT = 512;
+            
+            let width = img.width;
+            let height = img.height;
+            
+            // Zachowaj proporcje przy skalowaniu
+            if (width > height) {
+                if (width > MAX_WIDTH) {
+                    height = Math.round((height * MAX_WIDTH) / width);
+                    width = MAX_WIDTH;
+                }
+            } else {
+                if (height > MAX_HEIGHT) {
+                    width = Math.round((width * MAX_HEIGHT) / height);
+                    height = MAX_HEIGHT;
+                }
             }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Włącz smoothing dla lepszej jakości przy skalowaniu w dół
+            if (ctx) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+            }
+            
+            // Narysuj obraz na canvas
+            ctx?.drawImage(img, 0, 0, width, height);
+            
+            // Konwertuj do WebP z kompresją
+            canvas.toBlob(
+                (blob) => {
+                    if (blob) {
+                        const optimizedFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.webp'), {
+                            type: 'image/webp',
+                            lastModified: Date.now()
+                        });
+                        resolve(optimizedFile);
+                    } else {
+                        reject(new Error('Nie udało się zoptymalizować obrazu'));
+                    }
+                },
+                'image/webp',
+                0.85 // Zwiększona jakość do 85% dla lepszej jakości przy mniejszym rozmiarze
+            );
+        };
+        
+        img.onerror = () => reject(new Error('Nie udało się załadować obrazu'));
+    });
+};
 
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-            handleSubmit(file);
-        }
-    };
+export default function ImageInput({ onResponse, onError, onImageUpload }: ImageInputProps) {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [progress, setProgress] = useState<number>(0);
+    const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-    const handleSubmit = async (file: File) => {
-        setIsLoading(true);
+    const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
         try {
-            const formData = new FormData();
-            formData.append('file', file);
+            setIsProcessing(true);
+            setProgress(10); // Rozpoczęcie optymalizacji
 
-            const response = await fetch(API_ENDPOINTS.ANALYZE_IMAGE, {
+            // Optymalizuj obraz przed wysłaniem
+            const optimizedFile = await optimizeImage(file);
+            setProgress(30); // Obraz zoptymalizowany
+            
+            // Tworzenie URL-a dla wgranego zdjęcia
+            const imageUrl = URL.createObjectURL(optimizedFile);
+            onImageUpload(imageUrl);
+            setProgress(40); // Obraz wyświetlony
+
+            const formData = new FormData();
+            formData.append('file', optimizedFile);
+
+            const response = await fetch(`${API_URL}/api/analyze/image`, {
                 method: 'POST',
                 headers: {
-                    'Accept': 'application/json',
+                    'Accept': 'application/x-ndjson',
                 },
                 body: formData,
-                mode: 'cors'
+                credentials: 'include'
             });
 
             if (!response.ok) {
-                throw new Error('Nie udało się przetworzyć zdjęcia');
+                throw new Error('Błąd podczas analizy zdjęcia');
             }
 
-            const data = await response.json();
-            onResponse(data.analysis);
+            setProgress(60); // Obraz przesłany do API
+
+            // Obsługa streamingu odpowiedzi
+            const reader = response.body?.getReader();
+            if (!reader) throw new Error('Nie można odczytać odpowiedzi');
+
+            const decoder = new TextDecoder();
+            let buffer = ''; // Bufor na niekompletne chunki
+            let fullAnalysis = ''; // Pełna analiza
+            let finalResponseReceived = false;
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                // Dodaj nowe dane do bufora
+                buffer += decoder.decode(value, { stream: true });
+                
+                // Podziel na linie i przetwórz kompletne JSON-y
+                const lines = buffer.split('\n');
+                // Zachowaj ostatnią (potencjalnie niekompletną) linię w buforze
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                    if (line.trim()) {
+                        try {
+                            const data = JSON.parse(line);
+                            if (data.error) {
+                                throw new Error(data.error);
+                            }
+                            if (data.analysis) {
+                                fullAnalysis = data.analysis;
+                                
+                                // Jeśli to ostateczna odpowiedź, próbujemy ją sparsować jako JSON
+                                if (data.status === 'completed') {
+                                    finalResponseReceived = true;
+                                    try {
+                                        // Najpierw spróbuj potraktować analizę jako JSON
+                                        const recipeObj = JSON.parse(fullAnalysis);
+                                        onResponse(recipeObj);
+                                    } catch (e) {
+                                        // Jeśli nie jest JSON, przekaż jako tekst
+                                        onResponse(formatTextResponse(fullAnalysis));
+                                    }
+                                } else {
+                                    // Dla częściowych odpowiedzi, aktualizuj tekst
+                                    onResponse(formatTextResponse(fullAnalysis));
+                                }
+                                
+                                setProgress(80 + (Math.random() * 10));
+                            }
+                        } catch (e) {
+                            console.error('Błąd parsowania JSON:', e);
+                        }
+                    }
+                }
+            }
+            
+            // Przetwórz pozostałe dane w buforze
+            if (buffer.trim() && !finalResponseReceived) {
+                try {
+                    const data = JSON.parse(buffer);
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    if (data.analysis) {
+                        fullAnalysis = data.analysis;
+                        try {
+                            // Najpierw spróbuj potraktować analizę jako JSON
+                            const recipeObj = JSON.parse(fullAnalysis);
+                            onResponse(recipeObj);
+                        } catch (e) {
+                            // Jeśli nie jest JSON, przekaż jako tekst
+                            onResponse(formatTextResponse(fullAnalysis));
+                        }
+                    }
+                } catch (e) {
+                    console.error('Błąd parsowania końcowego JSON:', e);
+                }
+            }
+
+            setProgress(100);
+            setIsProcessing(false);
         } catch (error) {
             onError(error instanceof Error ? error.message : 'Wystąpił nieznany błąd');
-        } finally {
-            setIsLoading(false);
+            setIsProcessing(false);
         }
     };
 
-    const handleClick = () => {
-        fileInputRef.current?.click();
+    // Funkcja formatująca odpowiedź tekstową na strukturę przepisów
+    const formatTextResponse = (text: string): { recipes: Recipe[] } => {
+        const lines = text.split('\n').filter(line => line.trim());
+        const recipes: Recipe[] = [];
+        let currentRecipe: Recipe = {
+            title: 'Przepis',
+            ingredients: [],
+            steps: [],
+            spice_recommendations: {}
+        };
+        let currentSection = '';
+
+        lines.forEach((line, index) => {
+            const trimmedLine = line.trim().toLowerCase();
+            
+            // Zakończ aktualny przepis jeśli napotkamy nowy
+            if (trimmedLine.includes('przepis') || 
+                trimmedLine.startsWith('tytuł:') || 
+                (line.length > 0 && 
+                 !trimmedLine.includes('składniki:') && 
+                 !trimmedLine.includes('przygotowanie:') && 
+                 !trimmedLine.includes('kroki:') &&
+                 (index === 0 || lines[index - 1].trim() === ''))) {
+                
+                // Zapisz poprzedni przepis jeśli istnieje i ma składniki
+                if (currentRecipe.ingredients.length > 0) {
+                    const recommendedSpice = getSpiceRecommendationByIngredients(currentRecipe.ingredients);
+                    currentRecipe.spice_recommendations = { recipe_blend: recommendedSpice };
+                    recipes.push({ ...currentRecipe });
+                }
+
+                // Rozpocznij nowy przepis
+                currentRecipe = {
+                    title: line.toLowerCase().startsWith('tytuł:') ? 
+                           line.substring(6).trim() : 
+                           line.replace(/^przepis\s*\d*:\s*/i, '').trim(),
+                    ingredients: [],
+                    steps: [],
+                    spice_recommendations: {}
+                };
+                currentSection = '';
+            }
+            // Identyfikacja sekcji
+            else if (trimmedLine.includes('składniki:')) {
+                if (!currentRecipe) {
+                    currentRecipe = {
+                        title: 'Przepis',
+                        ingredients: [],
+                        steps: [],
+                        spice_recommendations: {}
+                    };
+                }
+                currentSection = 'ingredients';
+            }
+            else if (trimmedLine.includes('przygotowanie:') || 
+                     trimmedLine.includes('kroki:') || 
+                     trimmedLine.includes('sposób wykonania:')) {
+                currentSection = 'steps';
+            }
+            // Dodawanie elementów do odpowiedniej sekcji
+            else if (line.length > 0 && currentRecipe) {
+                const cleanLine = line.replace(/^[\d.-]+\s*/, '').trim();
+                if (cleanLine) {
+                    if (currentSection === 'ingredients') {
+                        currentRecipe.ingredients.push(cleanLine);
+                    } else if (currentSection === 'steps') {
+                        currentRecipe.steps.push(cleanLine);
+                    }
+                }
+            }
+        });
+
+        // Dodaj ostatni przepis jeśli istnieje i ma składniki
+        if (currentRecipe.ingredients.length > 0) {
+            const recommendedSpice = getSpiceRecommendationByIngredients(currentRecipe.ingredients);
+            currentRecipe.spice_recommendations = { recipe_blend: recommendedSpice };
+            recipes.push({ ...currentRecipe });
+        }
+
+        // Jeśli nie znaleziono żadnych przepisów, spróbuj utworzyć jeden z analizy obrazu
+        if (recipes.length === 0) {
+            const ingredients = lines
+                .filter(line => 
+                    line.toLowerCase().includes('widzę') || 
+                    line.toLowerCase().includes('na zdjęciu') || 
+                    line.toLowerCase().includes('składnik'))
+                .flatMap(line => 
+                    line.replace(/^.*?(?:widzę|na zdjęciu|składniki:)/i, '')
+                        .split(/[,.]/)
+                        .map(i => i.trim())
+                        .filter(i => i.length > 0)
+                );
+
+            if (ingredients.length > 0) {
+                const recommendedSpice = getSpiceRecommendationByIngredients(ingredients);
+                recipes.push({
+                    title: 'Analiza składników',
+                    ingredients: ingredients,
+                    steps: ['Wykryte składniki zostały zapisane powyżej. Wybierz jeden z proponowanych przepisów, aby rozpocząć gotowanie.'],
+                    spice_recommendations: { recipe_blend: recommendedSpice }
+                });
+            }
+        }
+
+        return { recipes };
     };
 
     return (
-        <div className="flex flex-col items-center gap-4">
+        <div className="relative">
             <input
                 type="file"
                 accept="image/*"
-                onChange={handleFileChange}
-                ref={fileInputRef}
+                onChange={handleImageUpload}
                 className="hidden"
+                data-image-input
             />
-            <button
-                type="button"
-                onClick={handleClick}
-                disabled={isLoading}
-                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-400"
-            >
-                {isLoading ? 'Analizuję...' : 'Wybierz zdjęcie'}
-            </button>
-            {preview && (
-                <div className="mt-4 relative">
-                    <Image 
-                        src={preview} 
-                        alt="Preview" 
-                        width={200} 
-                        height={200}
-                        style={{ objectFit: 'cover' }}
+            {isProcessing && (
+                <div className="absolute bottom-0 left-0 right-0 bg-gray-200 rounded-full h-2">
+                    <div 
+                        className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
                     />
-                    {isLoading && (
-                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
-                            <div className="text-white">Analizuję...</div>
-                        </div>
-                    )}
                 </div>
             )}
         </div>

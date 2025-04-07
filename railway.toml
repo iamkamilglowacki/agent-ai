@@ -1,0 +1,14 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "cd backend && pip install -r requirements.txt"
+
+[deploy]
+startCommand = "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[cron.update-spices]
+schedule = "0 0 * * *"  # Codziennie o północy
+command = "cd scripts && npm install && node fetch-woocommerce-products.js && git config --global user.email 'bot@example.com' && git config --global user.name 'Update Bot' && git add ../frontend/src/data/spices.ts && git commit -m 'chore: aktualizacja danych o przyprawach' && git push origin staging" 

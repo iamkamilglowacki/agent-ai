@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
+from app.routers import recipes
+from app.routers import spices
 import os
 from dotenv import load_dotenv
 import logging
@@ -23,7 +25,10 @@ allowed_origins = [
     "http://localhost:3001",  # alternatywny port dev
     "http://localhost:3005",  # alternatywny port dev
     "https://agent-ai-spices.vercel.app",  # produkcyjny URL
-    "https://agent-afxbyggz0-kamils-projects-887b8705.vercel.app",  # nowy produkcyjny URL
+    "https://agent-ai-git-staging-kamils-projects-887b8705.vercel.app",  # URL stagingowy Vercel
+    "https://agent-ai-git-main-kamils-projects-887b8705.vercel.app",  # URL główny Vercel
+    "https://agent-ai-staging.up.railway.app",  # URL stagingowy Railway
+    "https://agent-ai-production.up.railway.app",  # URL produkcyjny Railway
     os.getenv("FRONTEND_URL", "")  # URL z zmiennej środowiskowej
 ]
 
@@ -43,6 +48,8 @@ app.add_middleware(
 
 # Dodanie routera API
 app.include_router(api_router, prefix="/api")
+app.include_router(recipes.router, prefix="/api")
+app.include_router(spices.router, prefix="/api")
 
 @app.get("/")
 async def root():
