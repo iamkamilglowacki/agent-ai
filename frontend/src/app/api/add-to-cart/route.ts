@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-// Przekierowanie użytkownika do strony z formularzem, który automatycznie wyśle żądanie
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -15,78 +14,72 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Brak ID produktu' }, { status: 400 });
     }
 
-    // URL do dodania produktu do koszyka
-    const addToCartUrl = `https://flavorinthejar.com/?add-to-cart=${productId}&quantity=${quantity}`;
+    // Pobierz wszystkie ciasteczka z żądania klienta
+    const cookieStore = cookies();
+    const allCookies = cookieStore.getAll();
+    console.log('[API] Ciasteczka klienta:', allCookies.map(c => `${c.name}=${c.value}`));
     
-    // Tworzymy stronę HTML z automatycznym przekierowaniem/formularzem
-    const htmlResponse = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Przekierowywanie do koszyka...</title>
-        <script>
-          // Funkcja do tworzenia iframe i wysyłania formularza
-          function addToCart() {
-            // Tworzymy ukryty iframe
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            document.body.appendChild(iframe);
-            
-            // Po załadowaniu iframe, tworzymy i wysyłamy formularz
-            iframe.onload = function() {
-              try {
-                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                const form = iframeDoc.createElement('form');
-                form.method = 'POST';
-                form.action = 'https://flavorinthejar.com/';
-                
-                // Dodajemy pola formularza
-                const addToCartInput = iframeDoc.createElement('input');
-                addToCartInput.type = 'hidden';
-                addToCartInput.name = 'add-to-cart';
-                addToCartInput.value = '${productId}';
-                form.appendChild(addToCartInput);
-                
-                const quantityInput = iframeDoc.createElement('input');
-                quantityInput.type = 'hidden';
-                quantityInput.name = 'quantity';
-                quantityInput.value = '${quantity}';
-                form.appendChild(quantityInput);
-                
-                // Dodajemy formularz do iframe i wysyłamy
-                iframeDoc.body.appendChild(form);
-                form.submit();
-                
-                // Informujemy rodzica o sukcesie
-                window.parent.postMessage({ status: 'success', message: 'Produkt dodany do koszyka' }, '*');
-              } catch(e) {
-                console.error('Błąd podczas dodawania do koszyka:', e);
-                window.parent.postMessage({ status: 'error', message: e.toString() }, '*');
-              }
-            };
-            
-            // Ustawiamy źródło iframe na pusty dokument HTML
-            iframe.src = 'about:blank';
-          }
-          
-          // Wywołujemy funkcję po załadowaniu strony
-          window.onload = addToCart;
-        </script>
-      </head>
-      <body>
-        <p>Dodawanie produktu do koszyka...</p>
-      </body>
-      </html>
-    `;
+    // Przygotuj nagłówek Cookie dla żądania do WooCommerce
+    const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
     
-    // Zwracamy stronę HTML jako odpowiedź
-    const response = new NextResponse(htmlResponse, {
-      status: 200,
+    // URL do dodania produktu do koszyka WooCommerce
+    const wooCommerceUrl = `https://flavorinthejar.com/?add-to-cart=${productId}&quantity=${quantity}`;
+    console.log('[API] Wysyłanie żądania do WooCommerce URL:', wooCommerceUrl);
+
+    // Wykonaj żądanie do WooCommerce
+    const wooResponse = await fetch(wooCommerceUrl, {
+      method: 'GET', // Zmiana na GET zgodnie z metodą używaną przez ?add-to-cart=
       headers: {
-        'Content-Type': 'text/html; charset=utf-8',
+        'Cookie': cookieHeader,
+        'User-Agent': 'Mozilla/5.0 (compatible; Flavor-Proxy/1.0)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml'
+      },
+      redirect: 'follow', // Śledzenie przekierowań
+    });
+
+    console.log(`[API] Odpowiedź WooCommerce: ${wooResponse.status} ${wooResponse.statusText}`);
+    console.log('[API] URL odpowiedzi:', wooResponse.url);
+    
+    // Pobierz i zaloguj nagłówki odpowiedzi
+    const responseHeaders = Object.fromEntries([...wooResponse.headers.entries()]);
+    console.log('[API] Nagłówki odpowiedzi:', responseHeaders);
+
+    // Zbierz wszystkie nagłówki Set-Cookie
+    const setCookieHeaders: string[] = [];
+    // Pobieramy wszystkie nagłówki Set-Cookie ręcznie, bo Headers.getAll nie jest dostępne
+    wooResponse.headers.forEach((value, key) => {
+      if (key.toLowerCase() === 'set-cookie') {
+        setCookieHeaders.push(value);
       }
     });
-    
+    console.log('[API] Set-Cookie headers:', setCookieHeaders);
+
+    if (!wooResponse.ok && wooResponse.status !== 302) { // 302 jest oczekiwany dla przekierowań po dodaniu do koszyka
+      console.error(`[API] Błąd podczas dodawania do koszyka: ${wooResponse.status}`);
+      return NextResponse.json(
+        { 
+          error: 'Nie udało się dodać produktu do koszyka',
+          statusCode: wooResponse.status,
+          statusText: wooResponse.statusText
+        },
+        { status: 500 }
+      );
+    }
+
+    // Możemy teraz dodatkowo sprawdzić, czy produkt został faktycznie dodany do koszyka
+    // poprzez pobranie zawartości koszyka
+
+    // Tworzymy odpowiedź z success
+    const response = NextResponse.json(
+      { success: true, message: 'Produkt dodany do koszyka' },
+      { status: 200 }
+    );
+
+    // Przekazujemy wszystkie ciasteczka z odpowiedzi WooCommerce do klienta
+    setCookieHeaders.forEach((cookieHeader: string) => {
+      response.headers.append('set-cookie', cookieHeader);
+    });
+
     return response;
   } catch (error) {
     console.error('[API] Błąd podczas przetwarzania żądania add-to-cart:', error);

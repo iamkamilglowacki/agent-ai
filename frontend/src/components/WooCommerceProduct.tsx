@@ -33,70 +33,31 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         
         try {
             console.log('Rozpoczynam dodawanie do koszyka:', product.id, product.name);
+            const formData = new FormData();
+            formData.append('productId', product.id.toString());
+            formData.append('quantity', '1');
             
-            // Tworzymy iframe do obsługi dodawania do koszyka
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.name = 'add-to-cart-frame-' + product.id;
-            document.body.appendChild(iframe);
-            
-            // Tworzymy formularz do wysłania przez iframe
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '/api/add-to-cart';
-            form.target = 'add-to-cart-frame-' + product.id;
-            
-            // Dodajemy pola formularza
-            const productIdInput = document.createElement('input');
-            productIdInput.type = 'hidden';
-            productIdInput.name = 'productId';
-            productIdInput.value = product.id.toString();
-            form.appendChild(productIdInput);
-            
-            const quantityInput = document.createElement('input');
-            quantityInput.type = 'hidden';
-            quantityInput.name = 'quantity';
-            quantityInput.value = '1';
-            form.appendChild(quantityInput);
-            
-            // Dodajemy formularz do dokumentu i wysyłamy
-            document.body.appendChild(form);
-            form.submit();
-            
-            // Nasłuchujemy na wiadomość z iframe
-            window.addEventListener('message', function messageHandler(event) {
-                if (event.data && (event.data.status === 'success' || event.data.status === 'error')) {
-                    window.removeEventListener('message', messageHandler);
-                    
-                    if (event.data.status === 'success') {
-                        console.log('Produkt dodany do koszyka:', event.data.message);
-                        setAdded(true);
-                        setTimeout(() => setAdded(false), 2000);
-                    } else {
-                        console.error('Błąd podczas dodawania do koszyka:', event.data.message);
-                        setError(event.data.message || 'Wystąpił błąd podczas dodawania do koszyka');
-                    }
-                    
-                    setLoading(false);
-                    
-                    // Usuwamy formularz i iframe
-                    setTimeout(() => {
-                        if (document.body.contains(form)) document.body.removeChild(form);
-                        if (document.body.contains(iframe)) document.body.removeChild(iframe);
-                    }, 2000);
-                }
+            console.log('Wysyłam żądanie POST do API proxy');
+            const response = await fetch('/api/add-to-cart', {
+                method: 'POST',
+                body: formData,
             });
 
-            // Ustawiamy timeout na wypadek braku odpowiedzi
-            setTimeout(() => {
-                setAdded(true);
-                setTimeout(() => setAdded(false), 2000);
-                setLoading(false);
-            }, 3000);
-            
+            console.log('Odpowiedź:', response.status, response.statusText);
+            const responseData = await response.json();
+            console.log('Dane odpowiedzi:', responseData);
+
+            if (!response.ok) {
+                throw new Error(responseData.error || `Nie udało się dodać produktu do koszyka. Status: ${response.status}`);
+            }
+
+            setAdded(true);
+            console.log('Produkt dodany do koszyka');
+            setTimeout(() => setAdded(false), 2000);
         } catch (err) {
             console.error('Błąd podczas dodawania do koszyka:', err);
             setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas dodawania do koszyka');
+        } finally {
             setLoading(false);
         }
     };
