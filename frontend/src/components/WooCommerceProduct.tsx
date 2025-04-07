@@ -13,6 +13,8 @@ interface WooCommerceProductProps {
     };
 }
 
+const SHOP_URL = 'https://flavorinthejar.com';
+
 export default function WooCommerceProduct({ product }: WooCommerceProductProps) {
     const [loading, setLoading] = useState(false);
     const [added, setAdded] = useState(false);
@@ -26,13 +28,14 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         formData.append('add-to-cart', product.id.toString());
         
         try {
-            const baseUrl = new URL(product.add_to_cart_url).origin;
-            const response = await fetch(`${baseUrl}/?wc-ajax=add_to_cart`, {
+            const response = await fetch(`${SHOP_URL}/?wc-ajax=add_to_cart`, {
                 method: 'POST',
                 body: formData,
                 credentials: 'include',
                 headers: {
                     'Accept': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Origin': 'https://app.flavorinthejar.com'
                 }
             });
             
