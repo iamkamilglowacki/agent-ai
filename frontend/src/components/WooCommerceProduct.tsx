@@ -13,12 +13,17 @@ interface WooCommerceProductProps {
     };
 }
 
-const SHOP_URL = 'https://flavorinthejar.com';
+// Interfejs dla fragmentów koszyka z WooCommerce
+interface CartFragments {
+    cart_count?: number;
+    cart_total?: string;
+    [key: string]: unknown;
+}
 
 // Funkcja do odświeżania mini-koszyka
-const refreshMiniCart = (fragments?: any) => {
+const refreshMiniCart = (fragments?: CartFragments) => {
     // Jeśli mamy fragmenty z WooCommerce, użyjmy ich
-    if (fragments && fragments.cart_count) {
+    if (fragments?.cart_count !== undefined) {
         const miniCartElements = document.querySelectorAll('.mini-cart-count');
         miniCartElements.forEach(element => {
             if (element instanceof HTMLElement) {
@@ -56,11 +61,12 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
 
     // Nasłuchuj na zdarzenie added_to_cart z WooCommerce
     useEffect(() => {
-        const handleAddedToCart = (e: Event, fragments: any, cartHash: string, button?: HTMLElement) => {
-            console.log('Produkt dodany do koszyka:', fragments);
-            refreshMiniCart(fragments);
+        const handleAddedToCart = (e: CustomEvent<{ fragments: CartFragments; cart_hash: string; button?: HTMLElement }>) => {
+            console.log('Produkt dodany do koszyka:', e.detail.fragments);
+            refreshMiniCart(e.detail.fragments);
             
             // Jeśli mamy przycisk, dodaj animację
+            const button = e.detail.button;
             if (button) {
                 button.classList.add('added-to-cart');
                 setTimeout(() => button.classList.remove('added-to-cart'), 1000);
