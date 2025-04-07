@@ -3,9 +3,10 @@
 import React, { useRef, useState } from 'react';
 import { API_URL } from '@/config/api';
 import { getSpiceRecommendationByIngredients } from '@/services/spiceRecommendations';
+import { Recipe } from '@/types/recipe';
 
 interface ImageInputProps {
-    onResponse: (response: any) => void;
+    onResponse: (response: { recipes: Recipe[] }) => void;
     onError: (error: string) => void;
     onImageUpload: (imageUrl: string) => void;
 }
@@ -117,7 +118,7 @@ export default function ImageInput({ onResponse, onError, onImageUpload }: Image
             const reader = response.body?.getReader();
             if (!reader) throw new Error('Nie można odczytać odpowiedzi');
 
-            let decoder = new TextDecoder();
+            const decoder = new TextDecoder();
             let buffer = ''; // Bufor na niekompletne chunki
             let fullAnalysis = ''; // Pełna analiza
             let finalResponseReceived = false;
@@ -201,10 +202,15 @@ export default function ImageInput({ onResponse, onError, onImageUpload }: Image
     };
 
     // Funkcja formatująca odpowiedź tekstową na strukturę przepisów
-    const formatTextResponse = (text: string) => {
+    const formatTextResponse = (text: string): { recipes: Recipe[] } => {
         const lines = text.split('\n').filter(line => line.trim());
-        const recipes: any[] = [];
-        let currentRecipe: any = null;
+        const recipes: Recipe[] = [];
+        let currentRecipe: Recipe = {
+            title: 'Przepis',
+            ingredients: [],
+            steps: [],
+            spice_recommendations: {}
+        };
         let currentSection = '';
 
         lines.forEach((line, index) => {
@@ -220,10 +226,10 @@ export default function ImageInput({ onResponse, onError, onImageUpload }: Image
                  (index === 0 || lines[index - 1].trim() === ''))) {
                 
                 // Zapisz poprzedni przepis jeśli istnieje i ma składniki
-                if (currentRecipe && currentRecipe.ingredients.length > 0) {
+                if (currentRecipe.ingredients.length > 0) {
                     const recommendedSpice = getSpiceRecommendationByIngredients(currentRecipe.ingredients);
                     currentRecipe.spice_recommendations = { recipe_blend: recommendedSpice };
-                    recipes.push(currentRecipe);
+                    recipes.push({ ...currentRecipe });
                 }
 
                 // Rozpocznij nowy przepis
@@ -267,11 +273,11 @@ export default function ImageInput({ onResponse, onError, onImageUpload }: Image
             }
         });
 
-        // Dodaj ostatni przepis jeśli istnieje
-        if (currentRecipe && currentRecipe.ingredients.length > 0) {
+        // Dodaj ostatni przepis jeśli istnieje i ma składniki
+        if (currentRecipe.ingredients.length > 0) {
             const recommendedSpice = getSpiceRecommendationByIngredients(currentRecipe.ingredients);
             currentRecipe.spice_recommendations = { recipe_blend: recommendedSpice };
-            recipes.push(currentRecipe);
+            recipes.push({ ...currentRecipe });
         }
 
         // Jeśli nie znaleziono żadnych przepisów, spróbuj utworzyć jeden z analizy obrazu

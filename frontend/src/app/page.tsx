@@ -6,23 +6,14 @@ import VoiceInput from './components/VoiceInput';
 import ImageInput from './components/ImageInput';
 import RecipeCard from './components/RecipeCard';
 import { MicrophoneIcon, PhotoIcon } from '@heroicons/react/24/outline';
-import { Spice } from '../types/spices';
-
-interface Recipe {
-  title: string;
-  ingredients: string[];
-  steps: string[];
-  spice_recommendations: {
-    recipe_blend?: Spice;
-  };
-}
+import { Recipe, RecipeResponse } from '../types/recipe';
 
 export default function Home() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
 
-  const handleResponse = (response: any) => {
+  const handleResponse = (response: { recipes: Recipe[] } | string | RecipeResponse) => {
     try {
       if (typeof response === 'string') {
         // Jeśli odpowiedź jest tekstem, podziel ją na sekcje
@@ -59,15 +50,20 @@ export default function Home() {
         }]);
       } else if (response && typeof response === 'object') {
         // Sprawdź format odpowiedzi
-        if (response.recipes && Array.isArray(response.recipes)) {
+        if ('recipes' in response && Array.isArray(response.recipes)) {
           // Nowy format z wieloma przepisami
           setRecipes(response.recipes);
-        } else if (response.recipe) {
+        } else if ('recipe' in response && response.recipe) {
           // Stary format z jednym przepisem
           setRecipes([response.recipe]);
-        } else if (response.title && Array.isArray(response.ingredients) && Array.isArray(response.steps)) {
+        } else if ('title' in response && Array.isArray(response.ingredients) && Array.isArray(response.steps)) {
           // Pojedynczy przepis jako obiekt
-          setRecipes([response]);
+          setRecipes([{
+            title: response.title || "Przepis",
+            ingredients: response.ingredients || [],
+            steps: response.steps || [],
+            spice_recommendations: response.spice_recommendations || {}
+          }]);
         } else {
           throw new Error('Nieprawidłowa struktura przepisu');
         }

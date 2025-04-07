@@ -3,20 +3,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { API_ENDPOINTS } from '../config/api';
 import { getSpiceRecommendationByIngredients } from '@/services/spiceRecommendations';
+import { Recipe } from '@/types/recipe';
 
 interface VoiceInputProps {
-    onResponse: (data: any) => void;
+    onResponse: (data: { recipes: Recipe[] }) => void;
     onError: (error: string) => void;
-}
-
-interface Recipe {
-    title?: string;
-    ingredients?: string[];
-    steps?: string[];
-    spice_recommendations?: {
-        recipe_blend?: any;
-    };
-    alternative_dishes?: string[];
 }
 
 export default function VoiceInput({ onResponse, onError }: VoiceInputProps) {
@@ -160,7 +151,6 @@ export default function VoiceInput({ onResponse, onError }: VoiceInputProps) {
         setIsLoading(true);
         try {
             const formData = new FormData();
-            const extension = audioBlob.type.split('/')[1];
             
             // Konwertuj do WAV jeśli to możliwe
             let finalBlob = audioBlob;
@@ -258,12 +248,12 @@ export default function VoiceInput({ onResponse, onError }: VoiceInputProps) {
                 
                 onResponse({ recipes: validatedRecipes });
             }
+            
+            setIsLoading(false);
         } catch (error) {
             console.error('Błąd podczas przetwarzania nagrania:', error);
             onError(error instanceof Error ? error.message : 'Wystąpił nieznany błąd');
             handleError();
-        } finally {
-            setIsLoading(false);
         }
     };
 

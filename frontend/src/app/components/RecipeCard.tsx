@@ -2,18 +2,8 @@
 
 import { useState } from 'react';
 import { SpiceRecommendation } from '../../components/SpiceRecommendation';
-import { Spice } from '../../types/spices';
+import { Recipe } from '../../types/recipe';
 import { AVAILABLE_SPICES } from '../../data/spices';
-
-interface Recipe {
-    title: string;
-    ingredients: string[];
-    steps: string[];
-    alternative_dishes?: string[];
-    spice_recommendations?: {
-        recipe_blend?: Spice;
-    };
-}
 
 interface RecipeCardProps {
     recipe: Recipe;
