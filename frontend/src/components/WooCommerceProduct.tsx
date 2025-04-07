@@ -23,11 +23,12 @@ interface CartFragments {
 // Funkcja do odświeżania mini-koszyka
 const refreshMiniCart = (fragments?: CartFragments) => {
     // Jeśli mamy fragmenty z WooCommerce, użyjmy ich
-    if (fragments?.cart_count !== undefined) {
+    const cartCount = fragments?.cart_count;
+    if (cartCount !== undefined) {
         const miniCartElements = document.querySelectorAll('.mini-cart-count');
         miniCartElements.forEach(element => {
             if (element instanceof HTMLElement) {
-                element.innerText = fragments.cart_count.toString();
+                element.innerText = cartCount.toString();
                 element.classList.add('cart-updated');
                 setTimeout(() => element.classList.remove('cart-updated'), 1000);
             }
