@@ -9,7 +9,7 @@ export async function GET() {
     const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
 
     // Wykonaj żądanie do WooCommerce aby pobrać stan koszyka
-    const wooCommerceUrl = 'https://flavorinthejar.com/';
+    const wooCommerceUrl = 'https://smakosz.flavorinthejar.com/';
     const wooResponse = await fetch(wooCommerceUrl + '?wc-ajax=get_cart_totals', {
       method: 'POST',
       headers: {
