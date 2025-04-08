@@ -1,7 +1,6 @@
 'use client';
 
-import React from 'react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Spice } from '../../types/spices';
 import { getFullWooCommerceUrl, WOOCOMMERCE_ENDPOINTS } from '../../config/api';
 
@@ -86,12 +85,16 @@ interface CartMessage {
 interface CartResponse {
     type: string;
     success: boolean;
+    payload?: {
+        productId: number;
+    };
 }
 
 export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice }) => {
     const [loading, setLoading] = useState(false);
     const [isAdded, setIsAdded] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         // Nasłuchiwanie odpowiedzi z parent window
@@ -99,7 +102,8 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
             if (event.origin !== 'https://flavorinthejar.com') return;
 
             const data = event.data as CartResponse;
-            if (data.type === 'addToCartResponse') {
+            if (data.type === 'addToCartResponse' && 
+                data.payload?.productId === spice.id) { // Sprawdź czy odpowiedź dotyczy tego produktu
                 setLoading(false);
                 if (data.success) {
                     setIsAdded(true);
@@ -113,11 +117,11 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
 
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, []);
+    }, [spice.id]); // Dodaj spice.id do zależności
 
     const handleAddToCart = (e: React.MouseEvent) => {
         e.preventDefault();
-        console.log('Kliknięto przycisk "Wrzuć do basket"');
+        console.log('Kliknięto przycisk "Wrzuć do basket" dla produktu:', spice.id);
         
         if (loading || isAdded) {
             console.log('Przycisk jest zablokowany:', { loading, isAdded });
@@ -163,6 +167,7 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
                     </div>
                 </div>
                 <button
+                    ref={buttonRef}
                     onClick={handleAddToCart}
                     disabled={loading || isAdded}
                     className={`ml-4 px-4 py-2 rounded-lg transition-all duration-200 ${
