@@ -95,6 +95,14 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
     const [isAdded, setIsAdded] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
+    const timeoutRef = useRef<NodeJS.Timeout>();
+
+    // Funkcja do resetowania stanu przycisku
+    const resetButtonState = () => {
+        setLoading(false);
+        setIsAdded(false);
+        setError(null);
+    };
 
     useEffect(() => {
         // Nasłuchiwanie odpowiedzi z parent window
@@ -103,11 +111,19 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
 
             const data = event.data as CartResponse;
             if (data.type === 'addToCartResponse' && 
-                data.payload?.productId === spice.id) { // Sprawdź czy odpowiedź dotyczy tego produktu
+                data.payload?.productId === spice.id) {
+                // Wyczyść timeout bezpieczeństwa
+                if (timeoutRef.current) {
+                    clearTimeout(timeoutRef.current);
+                }
+                
                 setLoading(false);
                 if (data.success) {
                     setIsAdded(true);
-                    setTimeout(() => setIsAdded(false), 2000);
+                    // Reset po 2 sekundach
+                    setTimeout(() => {
+                        setIsAdded(false);
+                    }, 2000);
                 } else {
                     setError('Nie udało się dodać produktu do koszyka');
                     setTimeout(() => setError(null), 3000);
@@ -116,8 +132,14 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
         };
 
         window.addEventListener('message', handleMessage);
-        return () => window.removeEventListener('message', handleMessage);
-    }, [spice.id]); // Dodaj spice.id do zależności
+        return () => {
+            window.removeEventListener('message', handleMessage);
+            // Wyczyść timeout przy odmontowaniu
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, [spice.id]);
 
     const handleAddToCart = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -140,12 +162,18 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
                 }
             };
 
+            // Ustaw timeout bezpieczeństwa na 5 sekund
+            timeoutRef.current = setTimeout(() => {
+                console.log('Timeout bezpieczeństwa - resetowanie stanu przycisku');
+                resetButtonState();
+            }, 5000);
+
             console.log('Wysyłanie wiadomości do parent:', message);
             window.parent.postMessage(message, 'https://flavorinthejar.com');
         } catch (err) {
             console.error('Błąd podczas wysyłania wiadomości:', err);
             setError('Wystąpił błąd podczas komunikacji ze sklepem');
-            setLoading(false);
+            resetButtonState();
         }
     };
 
