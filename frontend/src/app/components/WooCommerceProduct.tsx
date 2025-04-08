@@ -33,6 +33,7 @@ interface CartFragments {
 
 // Funkcja do wysuwania karty koszyka
 const toggleCartSide = (show: boolean) => {
+    console.log('🔍 TEST DEPLOYU - NOWA WERSJA 🔍');
     console.log('Próba przełączenia koszyka:', {show});
     
     // Spróbuj różne selektory
@@ -241,7 +242,7 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
     };
 
     // Komponent przycisku
-    const buttonText = loading ? 'Dodawanie...' : added ? 'Dodano!' : 'Dodaj do koszyka';
+    const buttonText = loading ? 'Dodawanie...' : added ? 'Dodano!' : 'Wrzuć do basket';
     const buttonDisabled = loading || added;
 
     return (
