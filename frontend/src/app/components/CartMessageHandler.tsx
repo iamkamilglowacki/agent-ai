@@ -1,12 +1,23 @@
 'use client';
 
 import { useEffect } from 'react';
+import type { JQueryStatic } from 'jquery';
 
-// Interfejs dla fragmentów koszyka
-interface CartFragments {
-  cart_count?: number;
-  cart_total?: string;
-  [key: string]: unknown;
+// Interfejs dla danych koszyka
+interface CartData {
+  fragments?: {
+    cart_count?: number;
+    cart_total?: string;
+    [key: string]: unknown;
+  };
+  cart_hash?: string;
+}
+
+// Deklaracja typów dla jQuery
+declare global {
+  interface Window {
+    jQuery: JQueryStatic;
+  }
 }
 
 // Funkcja do aktualizacji mini-koszyka
@@ -55,11 +66,11 @@ export function CartMessageHandler() {
 
       // Reaguj zarówno na cartUpdated jak i addToCart
       if (event.data && (event.data.type === 'cartUpdated' || event.data.type === 'addToCart')) {
-        const cartData = event.data.payload;
+        const cartData = event.data.payload as CartData;
         console.log('Otrzymano aktualizację koszyka:', event.data.type, cartData);
         
         // Aktualizuj UI koszyka
-        if (cartData.fragments && cartData.fragments.cart_count !== undefined) {
+        if (cartData.fragments?.cart_count !== undefined) {
           updateMiniCartElements(cartData.fragments.cart_count.toString());
         }
         
@@ -76,8 +87,8 @@ export function CartMessageHandler() {
     window.addEventListener('message', handleMessage);
 
     // Dodaj listener na zdarzenie WooCommerce (jeśli jQuery jest dostępne)
-    if (typeof window !== 'undefined' && (window as any).jQuery) {
-      (window as any).jQuery(document.body).on('added_to_cart', function() {
+    if (typeof window !== 'undefined' && window.jQuery) {
+      window.jQuery(document.body).on('added_to_cart', () => {
         console.log('Złapano zdarzenie added_to_cart z WooCommerce');
         toggleCartSide(true);
       });
@@ -87,8 +98,8 @@ export function CartMessageHandler() {
       console.log('CartMessageHandler - usuwam listener');
       window.removeEventListener('message', handleMessage);
       // Cleanup dla jQuery listenera
-      if (typeof window !== 'undefined' && (window as any).jQuery) {
-        (window as any).jQuery(document.body).off('added_to_cart');
+      if (typeof window !== 'undefined' && window.jQuery) {
+        window.jQuery(document.body).off('added_to_cart');
       }
     };
   }, []);

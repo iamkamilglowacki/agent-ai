@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@types/jquery": "^3.5.32",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
