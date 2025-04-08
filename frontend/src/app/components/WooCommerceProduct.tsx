@@ -30,6 +30,26 @@ interface CartFragments {
     [key: string]: unknown;
 }
 
+// Funkcja do wysuwania karty koszyka
+const toggleCartSide = (show: boolean) => {
+    console.log('Próba przełączenia koszyka:', {show});
+    const cartSide = document.querySelector('.site-header-cart-side');
+    console.log('Znaleziony element:', cartSide);
+    
+    if (cartSide) {
+        if (show) {
+            console.log('Dodaję klasę active');
+            cartSide.classList.add('active');
+        } else {
+            console.log('Usuwam klasę active');
+            cartSide.classList.remove('active');
+        }
+        console.log('Klasy po zmianie:', cartSide.classList.toString());
+    } else {
+        console.log('Nie znaleziono elementu koszyka!');
+    }
+};
+
 // Funkcja pomocnicza do aktualizacji elementów mini-koszyka
 const updateMiniCartElements = (count: string) => {
     const miniCartElements = document.querySelectorAll('.mini-cart-count');
@@ -80,6 +100,36 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
     const [added, setAdded] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    useEffect(() => {
+        // Dodaj listener na wiadomości
+        const handleMessage = (e: MessageEvent) => {
+            console.log('Otrzymano wiadomość:', e.data);
+            // Reaguj zarówno na cartUpdated jak i addToCart
+            if (e.data.type === 'cartUpdated' || e.data.type === 'addToCart') {
+                console.log('Wywołuję toggleCartSide(true) dla typu:', e.data.type);
+                toggleCartSide(true);
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+
+        // Dodaj listener na zdarzenie added_to_cart z WooCommerce
+        if (typeof window !== 'undefined' && window.jQuery) {
+            window.jQuery(document.body).on('added_to_cart', () => {
+                console.log('Złapano zdarzenie added_to_cart z WooCommerce');
+                toggleCartSide(true);
+            });
+        }
+
+        // Cleanup
+        return () => {
+            window.removeEventListener('message', handleMessage);
+            if (typeof window !== 'undefined' && window.jQuery) {
+                window.jQuery(document.body).off('added_to_cart');
+            }
+        };
+    }, []);
+
     const handleAddToCart = (clickEvent: React.MouseEvent<HTMLButtonElement>) => {
         clickEvent.preventDefault();
         if (loading || added) return; // Zapobiegaj wielokrotnemu kliknięciu
@@ -96,14 +146,10 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         };
 
         // Wyślij wiadomość do okna nadrzędnego
-        // Użyj '*' jako targetOrigin na razie dla uproszczenia,
-        // ale w produkcji ustaw na 'https://flavorinthejar.com'
-        window.parent.postMessage(message, '*'); 
+        window.parent.postMessage(message, 'https://flavorinthejar.com'); // Zmieniono '*' na właściwy origin
 
-        // Nie ustawiamy od razu 'added' na true, bo czekamy na odpowiedź od rodzica.
-        // Możemy dodać timeout na loading, jeśli odpowiedź nie przyjdzie.
-        // Na razie upraszczamy i po prostu pokazujemy loading.
-        // W obsłudze wiadomości zwrotnej ustawimy 'added'.
+        // Wysuń koszyk od razu po kliknięciu
+        toggleCartSide(true);
     };
 
     return (
