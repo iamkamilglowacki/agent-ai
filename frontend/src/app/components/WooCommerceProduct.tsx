@@ -153,10 +153,16 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
 
     const handleAddToCart = async (clickEvent: React.MouseEvent<HTMLButtonElement>) => {
         clickEvent.preventDefault();
-        if (loading || added) return; // Zapobiegaj wielokrotnemu kliknięciu
+        console.log('Kliknięto przycisk "Dodaj do koszyka"');
+        
+        if (loading || added) {
+            console.log('Przycisk jest zablokowany:', { loading, added });
+            return;
+        }
 
         setLoading(true);
         setError(null);
+        console.log('Ustawiono stan loading=true');
 
         try {
             const message = {
@@ -168,36 +174,22 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
             };
 
             // Wyślij wiadomość do okna nadrzędnego
+            console.log('Wysyłanie wiadomości do rodzica:', message);
             window.parent.postMessage(message, 'https://flavorinthejar.com');
             
-            // Ustaw stan na dodane
+            // Oznacz jako dodane
+            console.log('Ustawianie stanu added=true');
             setAdded(true);
+            setLoading(false);
 
-            // Nasłuchuj na zdarzenie cartStateUpdated
-            const timeout = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Timeout')), 5000)
-            );
-
-            const cartUpdatePromise = new Promise((resolve) => {
-                const handleCartUpdate = (e: CustomEvent) => {
-                    if (e.detail?.productId === product.id) {
-                        document.body.removeEventListener('cartStateUpdated', handleCartUpdate as EventListener);
-                        resolve(e.detail);
-                    }
-                };
-                document.body.addEventListener('cartStateUpdated', handleCartUpdate as EventListener);
-            });
-
-            // Czekaj na odpowiedź lub timeout
-            await Promise.race([cartUpdatePromise, timeout]);
-
-            // Zresetuj stan po 2 sekundach
-            const timer = setTimeout(() => {
+            // Po 2 sekundach resetuj stan
+            console.log('Ustawianie timera na reset stanu');
+            setTimeout(() => {
+                console.log('Resetowanie stanów added i loading');
                 setAdded(false);
                 setLoading(false);
             }, 2000);
 
-            return () => clearTimeout(timer);
         } catch (err) {
             console.error('Błąd podczas dodawania do koszyka:', err);
             setError('Nie udało się dodać produktu do koszyka. Spróbuj ponownie.');
@@ -206,30 +198,12 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         }
     };
 
-    // Nasłuchuj na zdarzenie cartStateUpdated
-    useEffect(() => {
-        const handleCartUpdate = (e: Event) => {
-            const customEvent = e as CustomEvent;
-            if (customEvent.detail?.productId === product.id) {
-                setAdded(true);
-                setTimeout(() => {
-                    setAdded(false);
-                    setLoading(false);
-                }, 2000);
-            }
-        };
-
-        document.body.addEventListener('cartStateUpdated', handleCartUpdate);
-
-        return () => {
-            document.body.removeEventListener('cartStateUpdated', handleCartUpdate);
-        };
-    }, [product.id]);
+    // Komponent przycisku
+    const buttonText = loading ? 'Dodawanie...' : added ? 'Dodano!' : 'Dodaj do koszyka';
+    const buttonDisabled = loading || added;
 
     return (
         <div className="flex flex-col space-y-2">
-            {/* Nie potrzebujemy już ukrytego iframe */}
-            
             <div className="flex items-center gap-3">
                 <div className="relative w-16 h-16 rounded-md overflow-hidden">
                     {product.image_url && (
@@ -246,21 +220,16 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
                         <p className="text-sm text-gray-500">{product.price} zł</p>
                         <button 
                             onClick={handleAddToCart}
-                            disabled={loading || added}
+                            disabled={buttonDisabled}
                             data-product-id={product.id}
-                            className={`px-3 py-1 text-xs bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors ${loading || added ? 'opacity-50' : ''}`}
+                            className={`px-3 py-1 text-xs bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors ${buttonDisabled ? 'opacity-50' : ''}`}
                         >
-                            {loading ? 'Dodawanie...' : added ? 'Dodano!' : 'Dodaj do koszyka'}
+                            {buttonText}
                         </button>
                     </div>
                 </div>
             </div>
-            
-            {error && (
-                <div className="mt-2 p-2 bg-red-50 text-red-600 text-xs rounded">
-                    {error}
-                </div>
-            )}
+            {error && <p className="text-red-500 text-sm">{error}</p>}
             
             <div 
                 className="text-sm text-gray-600" 
