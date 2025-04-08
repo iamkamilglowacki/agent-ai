@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { API_ENDPOINTS, getApiUrl } from '../config/api';
+import { API_ENDPOINTS, getFullApiUrl } from '../config/api';
 import { getSpiceRecommendationByIngredients } from '@/services/spiceRecommendations';
 import { Recipe } from '@/types/recipe';
 
@@ -128,7 +128,7 @@ export default function ImageInput({ onResponse, onError, onImageUpload, setIsLo
             formData.append('file', optimizedFile);
 
             console.log('Przygotowuję żądanie do API:', {
-                url: `${getApiUrl()}${API_ENDPOINTS.ANALYZE_IMAGE}`,
+                url: getFullApiUrl(API_ENDPOINTS.ANALYZE_IMAGE),
                 method: 'POST',
                 headers: {
                     'Accept': 'application/x-ndjson',
@@ -142,7 +142,7 @@ export default function ImageInput({ onResponse, onError, onImageUpload, setIsLo
             const timeoutId = setTimeout(() => controller.abort(), 30000);
             
             try {
-                const response = await fetch(`${getApiUrl()}${API_ENDPOINTS.ANALYZE_IMAGE}`, {
+                const response = await fetch(getFullApiUrl(API_ENDPOINTS.ANALYZE_IMAGE), {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/x-ndjson',
@@ -161,7 +161,7 @@ export default function ImageInput({ onResponse, onError, onImageUpload, setIsLo
                         status: response.status, 
                         statusText: response.statusText,
                         body: errorText,
-                        url: `${getApiUrl()}${API_ENDPOINTS.ANALYZE_IMAGE}` // Logujemy URL dla debugowania
+                        url: getFullApiUrl(API_ENDPOINTS.ANALYZE_IMAGE) // Logujemy URL dla debugowania
                     });
                     
                     if (response.status === 413) {
