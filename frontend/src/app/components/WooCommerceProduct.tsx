@@ -50,6 +50,11 @@ const toggleCartSide = (show: boolean) => {
     }
 };
 
+// Dodaj toggleCartSide do window object
+if (typeof window !== 'undefined') {
+    (window as any).toggleCartSide = toggleCartSide;
+}
+
 // Funkcja pomocnicza do aktualizacji elementów mini-koszyka
 const updateMiniCartElements = (count: string) => {
     const miniCartElements = document.querySelectorAll('.mini-cart-count');
@@ -101,33 +106,48 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Dodaj listener na wiadomości
-        const handleMessage = (e: MessageEvent) => {
-            console.log('Otrzymano wiadomość:', e.data);
-            // Reaguj zarówno na cartUpdated jak i addToCart
-            if (e.data.type === 'cartUpdated' || e.data.type === 'addToCart') {
-                console.log('Wywołuję toggleCartSide(true) dla typu:', e.data.type);
-                toggleCartSide(true);
+        // Upewnij się, że kod wykonuje się tylko po stronie klienta
+        if (typeof window === 'undefined') return;
+
+        // Poczekaj na pełne załadowanie DOM
+        const initializeListeners = () => {
+            console.log('Inicjalizacja listenerów...');
+
+            // Dodaj listener na wiadomości
+            const handleMessage = (e: MessageEvent) => {
+                console.log('Otrzymano wiadomość:', e.data);
+                if (e.data.type === 'cartUpdated' || e.data.type === 'addToCart') {
+                    console.log('Wywołuję toggleCartSide(true) dla typu:', e.data.type);
+                    toggleCartSide(true);
+                }
+            };
+
+            window.addEventListener('message', handleMessage);
+
+            // Dodaj listener na zdarzenie added_to_cart z WooCommerce
+            if (window.jQuery) {
+                window.jQuery(document.body).on('added_to_cart', () => {
+                    console.log('Złapano zdarzenie added_to_cart z WooCommerce');
+                    toggleCartSide(true);
+                });
             }
+
+            // Cleanup
+            return () => {
+                window.removeEventListener('message', handleMessage);
+                if (window.jQuery) {
+                    window.jQuery(document.body).off('added_to_cart');
+                }
+            };
         };
 
-        window.addEventListener('message', handleMessage);
-
-        // Dodaj listener na zdarzenie added_to_cart z WooCommerce
-        if (typeof window !== 'undefined' && window.jQuery) {
-            window.jQuery(document.body).on('added_to_cart', () => {
-                console.log('Złapano zdarzenie added_to_cart z WooCommerce');
-                toggleCartSide(true);
-            });
+        // Uruchom inicjalizację po załadowaniu dokumentu
+        if (document.readyState === 'complete') {
+            initializeListeners();
+        } else {
+            window.addEventListener('load', initializeListeners);
+            return () => window.removeEventListener('load', initializeListeners);
         }
-
-        // Cleanup
-        return () => {
-            window.removeEventListener('message', handleMessage);
-            if (typeof window !== 'undefined' && window.jQuery) {
-                window.jQuery(document.body).off('added_to_cart');
-            }
-        };
     }, []);
 
     const handleAddToCart = (clickEvent: React.MouseEvent<HTMLButtonElement>) => {
