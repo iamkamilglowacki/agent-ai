@@ -110,49 +110,49 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         };
     }, []);
 
-    const handleAddToCart = async (e: React.MouseEvent) => {
-        e.preventDefault();
+    const handleAddToCart = async (clickEvent: React.MouseEvent<HTMLButtonElement>) => {
+        clickEvent.preventDefault();
         setLoading(true);
         setError(null);
-        
+
         try {
-            console.log('Dodawanie produktu:', product.id, product.name);
-            
-            const params = new URLSearchParams({
-                'add-to-cart': product.id.toString(),
-                'quantity': '1',
-                'wc-ajax': 'add_to_cart'
-            });
-            
-            const response = await fetch(`https://flavorinthejar.com/?${params.toString()}`, {
+            const formData = new URLSearchParams();
+            formData.append('product_id', product.id.toString());
+            formData.append('quantity', '1');
+
+            const response = await fetch('/api/add-to-cart', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                    'Accept': 'application/json, text/javascript, */*; q=0.01',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
+                body: formData.toString(),
                 credentials: 'include'
             });
-            
+
             if (!response.ok) {
-                throw new Error(`Błąd dodawania do koszyka: ${response.status}`);
+                throw new Error('Błąd podczas dodawania do koszyka');
             }
-            
+
             const data = await response.json();
-            console.log('Odpowiedź z WooCommerce:', data);
             
-            // Aktualizuj mini-koszyk
             if (data.fragments) {
-                refreshMiniCart(data.fragments);
-            } else {
-                refreshMiniCart();
+                // Wywołaj event added_to_cart, który zostanie obsłużony przez refreshMiniCart
+                const cartEvent = new CustomEvent('added_to_cart', {
+                    detail: {
+                        fragments: data.fragments,
+                        cart_hash: data.cart_hash,
+                        button: clickEvent.currentTarget
+                    }
+                });
+                document.body.dispatchEvent(cartEvent);
             }
-            
+
             setAdded(true);
             setTimeout(() => setAdded(false), 2000);
         } catch (err) {
-            console.error('Błąd podczas dodawania do koszyka:', err);
-            setError('Nie udało się dodać produktu do koszyka');
+            setError(err instanceof Error ? err.message : 'Wystąpił błąd');
         } finally {
             setLoading(false);
         }
