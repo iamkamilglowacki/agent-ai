@@ -35,39 +35,54 @@ interface CartFragments {
     [key: string]: unknown;
 }
 
-// Funkcja do odświeżania mini-koszyka
-const refreshMiniCart = (fragments?: CartFragments) => {
-    // Jeśli mamy fragmenty z WooCommerce, użyjmy ich
-    const cartCount = fragments?.cart_count;
-    if (cartCount !== undefined) {
-        const miniCartElements = document.querySelectorAll('.mini-cart-count');
-        miniCartElements.forEach(element => {
-            if (element instanceof HTMLElement) {
-                element.innerText = cartCount.toString();
-                element.classList.add('cart-updated');
-                setTimeout(() => element.classList.remove('cart-updated'), 1000);
-            }
-        });
-        return;
-    }
+// Funkcja pomocnicza do aktualizacji elementów mini-koszyka
+const updateMiniCartElements = (count: string) => {
+    const miniCartElements = document.querySelectorAll('.mini-cart-count');
+    miniCartElements.forEach(element => {
+        if (element instanceof HTMLElement) {
+            element.innerText = count;
+            element.classList.add('cart-updated');
+            setTimeout(() => element.classList.remove('cart-updated'), 1000);
+        }
+    });
+};
 
-    // Jeśli nie mamy fragmentów, pobierz stan koszyka z API
-    fetch('/api/cart/get', {
-        method: 'GET',
-        credentials: 'include'
-    })
-    .then(response => response.json())
-    .then(data => {
-        const miniCartElements = document.querySelectorAll('.mini-cart-count');
-        miniCartElements.forEach(element => {
-            if (element instanceof HTMLElement) {
-                element.innerText = data.count?.toString() || '0';
-                element.classList.add('cart-updated');
-                setTimeout(() => element.classList.remove('cart-updated'), 1000);
+// Funkcja do odświeżania mini-koszyka
+const refreshMiniCart = async (fragments?: CartFragments) => {
+    try {
+        if (fragments) {
+            const cartCount = fragments?.cart_count;
+            if (cartCount !== undefined) {
+                updateMiniCartElements(cartCount.toString());
+                return;
+            }
+        }
+
+        const response = await fetch('/api/cart/get', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
             }
         });
-    })
-    .catch(error => console.error('Błąd podczas odświeżania koszyka:', error));
+
+        // Sprawdź status odpowiedzi i typ zawartości
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Response is not JSON');
+        }
+
+        const data = await response.json();
+        console.log('Pobrano dane koszyka:', data);
+        updateMiniCartElements(data.count.toString());
+    } catch (error) {
+        console.error('Błąd podczas odświeżania koszyka:', error);
+        // W przypadku błędu, ustaw wartość 0
+        updateMiniCartElements('0');
+    }
 };
 
 export default function WooCommerceProduct({ product }: WooCommerceProductProps) {
@@ -105,7 +120,7 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         setError(null);
         
         try {
-            console.log('Dodawanie produktu przez iframe:', product.id, product.name);
+            console.log('Dodawanie produktu:', product.id, product.name);
             
             // Zamiast używać iframe, użyjmy bezpośredniego fetch z obsługą błędów
             const formData = new FormData();
@@ -128,7 +143,23 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
             }
             
             // Parsuj odpowiedź
-            const data = await response.json();
+            let data;
+            try {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    const text = await response.text();
+                    console.warn('Nieoczekiwany format odpowiedzi:', text.substring(0, 100));
+                    // Spróbuj stworzyć podstawową strukturę danych
+                    data = { fragments: { cart_count: 1 } };
+                }
+            } catch (parseError) {
+                console.error('Błąd parsowania odpowiedzi:', parseError);
+                // Jeśli parsowanie nie powiodło się, użyj domyślnych danych
+                data = { fragments: { cart_count: 1 } };
+            }
+            
             console.log('Odpowiedź z API:', data);
             
             // Produkt został dodany do koszyka
