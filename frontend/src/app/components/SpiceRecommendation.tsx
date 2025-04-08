@@ -1,12 +1,23 @@
 'use client';
 
 import React from 'react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Spice } from '../../types/spices';
 import { getFullWooCommerceUrl, WOOCOMMERCE_ENDPOINTS } from '../../config/api';
 
 // Deklaracja typu dla jQuery
-declare const jQuery: any;
+interface JQuery {
+    (selector: string): {
+        on: (event: string, handler: () => void) => void;
+        off: (event: string, handler: () => void) => void;
+    };
+    (element: Element): {
+        on: (event: string, handler: () => void) => void;
+        off: (event: string, handler: () => void) => void;
+    };
+}
+
+declare const jQuery: JQuery;
 
 interface SpiceRecommendationProps {
     spice: Spice;
