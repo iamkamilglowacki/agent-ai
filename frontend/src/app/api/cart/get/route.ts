@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+// Interfejs dla błędów fetch
+interface FetchError extends Error {
+  status?: number;
+  statusText?: string;
+  message: string;
+}
+
 export async function GET() {
   try {
     // Pobierz wszystkie ciasteczka
@@ -86,7 +93,7 @@ export async function GET() {
       });
 
       return response;
-    } catch (fetchError: any) {
+    } catch (fetchError: unknown) {
       console.error('[API cart/get] Błąd podczas pobierania danych z WooCommerce:', fetchError);
       
       // W przypadku błędu połączenia, zwróć pusty koszyk zamiast błędu 500
@@ -95,7 +102,7 @@ export async function GET() {
         count: 0,
         total: '0.00 zł',
         data: {},
-        error: `Problem z połączeniem do sklepu: ${fetchError.message}`
+        error: `Problem z połączeniem do sklepu: ${fetchError instanceof Error ? fetchError.message : 'Nieznany błąd'}`
       });
     }
   } catch (error) {
