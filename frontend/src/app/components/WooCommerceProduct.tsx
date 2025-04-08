@@ -151,36 +151,80 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         }
     }, []);
 
-    const handleAddToCart = (clickEvent: React.MouseEvent<HTMLButtonElement>) => {
+    const handleAddToCart = async (clickEvent: React.MouseEvent<HTMLButtonElement>) => {
         clickEvent.preventDefault();
         if (loading || added) return; // Zapobiegaj wielokrotnemu kliknięciu
 
         setLoading(true);
         setError(null);
 
-        const message = {
-            type: 'addToCart',
-            payload: {
-                productId: product.id,
-                quantity: 1 // Załóżmy, że zawsze dodajemy 1
+        try {
+            const message = {
+                type: 'addToCart',
+                payload: {
+                    productId: product.id,
+                    quantity: 1
+                }
+            };
+
+            // Wyślij wiadomość do okna nadrzędnego
+            window.parent.postMessage(message, 'https://flavorinthejar.com');
+            
+            // Ustaw stan na dodane
+            setAdded(true);
+
+            // Nasłuchuj na zdarzenie cartStateUpdated
+            const timeout = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout')), 5000)
+            );
+
+            const cartUpdatePromise = new Promise((resolve) => {
+                const handleCartUpdate = (e: CustomEvent) => {
+                    if (e.detail?.productId === product.id) {
+                        document.body.removeEventListener('cartStateUpdated', handleCartUpdate as EventListener);
+                        resolve(e.detail);
+                    }
+                };
+                document.body.addEventListener('cartStateUpdated', handleCartUpdate as EventListener);
+            });
+
+            // Czekaj na odpowiedź lub timeout
+            await Promise.race([cartUpdatePromise, timeout]);
+
+            // Zresetuj stan po 2 sekundach
+            const timer = setTimeout(() => {
+                setAdded(false);
+                setLoading(false);
+            }, 2000);
+
+            return () => clearTimeout(timer);
+        } catch (err) {
+            console.error('Błąd podczas dodawania do koszyka:', err);
+            setError('Nie udało się dodać produktu do koszyka. Spróbuj ponownie.');
+            setAdded(false);
+            setLoading(false);
+        }
+    };
+
+    // Nasłuchuj na zdarzenie cartStateUpdated
+    useEffect(() => {
+        const handleCartUpdate = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            if (customEvent.detail?.productId === product.id) {
+                setAdded(true);
+                setTimeout(() => {
+                    setAdded(false);
+                    setLoading(false);
+                }, 2000);
             }
         };
 
-        // Wyślij wiadomość do okna nadrzędnego
-        window.parent.postMessage(message, 'https://flavorinthejar.com');
+        document.body.addEventListener('cartStateUpdated', handleCartUpdate);
 
-        // Wysuń koszyk od razu po kliknięciu
-        toggleCartSide(true);
-        
-        // Ustaw stan na dodane
-        setAdded(true);
-        setLoading(false);
-        
-        // Zresetuj stan po 2 sekundach
-        setTimeout(() => {
-            setAdded(false);
-        }, 2000);
-    };
+        return () => {
+            document.body.removeEventListener('cartStateUpdated', handleCartUpdate);
+        };
+    }, [product.id]);
 
     return (
         <div className="flex flex-col space-y-2">
