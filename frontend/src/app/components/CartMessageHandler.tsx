@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import type { JQueryStatic } from 'jquery';
+import type jQuery from 'jquery';
 
 // Interfejs dla danych koszyka
 interface CartData {
@@ -16,7 +16,7 @@ interface CartData {
 // Deklaracja typów dla jQuery
 declare global {
   interface Window {
-    jQuery: JQueryStatic;
+    jQuery: typeof jQuery;
   }
 }
 
