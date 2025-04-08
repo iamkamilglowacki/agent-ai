@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import crypto from 'crypto';
 
 // Przekierowanie użytkownika do strony z formularzem, który automatycznie wyśle żądanie
 export async function POST(request: Request) {
@@ -135,6 +136,13 @@ export async function POST(request: Request) {
       cart_hash: responseData?.cart_hash || '',
       cart_quantity: cartData.cart_contents_count || 0
     });
+
+    // Generujemy unikalny identyfikator sesji
+    const sessionId = crypto.randomUUID();
+    console.log('[API] Generowanie nowego ID sesji:', sessionId);
+    
+    // Dodajemy dynamiczne ciasteczko sessionid
+    response.headers.append('set-cookie', `sessionid=${sessionId}; SameSite=None; Secure`);
 
     // Przekazujemy wszystkie ciasteczka z odpowiedzi WooCommerce do klienta
     setCookieHeaders.forEach((cookieHeader: string) => {

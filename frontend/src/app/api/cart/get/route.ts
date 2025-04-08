@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import crypto from 'crypto';
 
 // Interfejs dla błędów fetch
 interface FetchError extends Error {
@@ -86,6 +87,13 @@ export async function GET() {
         total: cartData.cart_total || '0.00 zł',
         data: cartData
       });
+
+      // Generujemy unikalny identyfikator sesji
+      const sessionId = crypto.randomUUID();
+      console.log('[API cart/get] Generowanie nowego ID sesji:', sessionId);
+      
+      // Dodajemy dynamiczne ciasteczko sessionid
+      response.headers.append('set-cookie', `sessionid=${sessionId}; SameSite=None; Secure`);
 
       // Przekaż ciasteczka do klienta
       setCookieHeaders.forEach(cookieHeader => {
