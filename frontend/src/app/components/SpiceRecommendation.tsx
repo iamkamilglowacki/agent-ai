@@ -5,6 +5,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Spice } from '../../types/spices';
 import { getFullWooCommerceUrl, WOOCOMMERCE_ENDPOINTS } from '../../config/api';
 
+// Deklaracja typu dla jQuery
+declare const jQuery: any;
+
 interface SpiceRecommendationProps {
     spice: Spice;
 }
@@ -61,10 +64,62 @@ const refreshMiniCart = async (fragments?: CartFragments) => {
     }
 };
 
+// Funkcja do przełączania widoczności koszyka
+const toggleCartSide = (show: boolean) => {
+    console.log('Próba przełączenia koszyka:', {show});
+    const cartSide = document.querySelector('.site-header-cart-side');
+    console.log('Znaleziony element:', cartSide);
+    
+    if (cartSide) {
+        if (show) {
+            console.log('Dodaję klasę active');
+            cartSide.classList.add('active');
+        } else {
+            console.log('Usuwam klasę active');
+            cartSide.classList.remove('active');
+        }
+        console.log('Klasy po zmianie:', cartSide.classList.toString());
+    } else {
+        console.log('Nie znaleziono elementu koszyka!');
+    }
+};
+
 export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice }) => {
     const [loading, setLoading] = useState(false);
     const [isAdded, setIsAdded] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Dodaj listenery na wiadomości i zdarzenia WooCommerce
+    useEffect(() => {
+        // Listener na wiadomości
+        const messageHandler = (e: MessageEvent) => {
+            console.log('Otrzymano wiadomość:', e.data);
+            if (e.data.type === 'cartUpdated' || e.data.type === 'addToCart') {
+                console.log('Wywołuję toggleCartSide(true) dla typu:', e.data.type);
+                toggleCartSide(true);
+            }
+        };
+
+        // Listener na zdarzenia WooCommerce
+        const wooCommerceHandler = () => {
+            console.log('Złapano zdarzenie added_to_cart z WooCommerce');
+            toggleCartSide(true);
+        };
+
+        // Dodaj listenery
+        window.addEventListener('message', messageHandler);
+        if (typeof jQuery !== 'undefined') {
+            jQuery(document.body).on('added_to_cart', wooCommerceHandler);
+        }
+
+        // Cleanup przy odmontowaniu komponentu
+        return () => {
+            window.removeEventListener('message', messageHandler);
+            if (typeof jQuery !== 'undefined') {
+                jQuery(document.body).off('added_to_cart', wooCommerceHandler);
+            }
+        };
+    }, []); // Pusta tablica zależności - uruchom tylko raz przy montowaniu
 
     const handleAddToCart = async (e: React.MouseEvent) => {
         e.preventDefault();
