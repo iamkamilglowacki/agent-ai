@@ -107,104 +107,120 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         try {
             console.log('Dodawanie produktu przez iframe:', product.id, product.name);
             
-            // Dodaj produkt przez iframe bez przeładowania strony
-            if (iframeRef.current) {
-                // Użyj add-to-cart URL z parametrem wc-ajax
-                const ajaxUrl = `https://smakosz.flavorinthejar.com/?add-to-cart=${product.id}&quantity=1&wc-ajax=add_to_cart`;
-                iframeRef.current.src = ajaxUrl;
-                
-                // Produkt został dodany do koszyka (zakładamy, że iframe zadziała)
-                setAdded(true);
-                setTimeout(() => setAdded(false), 2000);
-                
-                // Odśwież informację o koszyku
-                setTimeout(refreshMiniCart, 1000);
-                
-                // Wysuń panel koszyka - wywołaj funkcję WooCommerce
-                setTimeout(() => {
-                    // Sprawdź, czy istnieje panel boczny koszyka
-                    if (typeof window !== 'undefined') {
-                        // Metoda 1: Bezpośrednie manipulowanie klasami panelu koszyka
-                        const cartSidePanel = document.querySelector('.site-header-cart-side');
-                        if (cartSidePanel && cartSidePanel instanceof HTMLElement) {
-                            cartSidePanel.classList.add('active');
-                            console.log('Wysunięto panel koszyka');
-                        } 
-                        // Metoda 2: Bezpośrednie kliknięcie ikony koszyka
-                        else {
-                            const cartIcon = document.querySelector('.cart-contents, .cart-icon, .mini-cart-icon, a[href*="cart"]');
-                            if (cartIcon && cartIcon instanceof HTMLElement) {
-                                cartIcon.click();
-                                console.log('Kliknięto ikonę koszyka');
-                            } 
-                            // Metoda 3: Użycie jQuery (jeśli dostępne)
-                            else if (typeof window !== 'undefined' && 'jQuery' in window) {
-                                const windowWithJQuery = window as WindowWithJQuery;
-                                const jQuery = windowWithJQuery.jQuery;
-                                if (jQuery) {
-                                    // Próba 1: Klasyczny panel boczny
-                                    const sideCart = jQuery('.site-header-cart-side');
-                                    if (sideCart.length) {
-                                        sideCart.addClass('active');
-                                        console.log('Wysunięto panel koszyka przez jQuery');
-                                    }
-                                    // Próba 2: Widget koszyka
-                                    else {
-                                        jQuery('.widget_shopping_cart_content').slideDown();
-                                        console.log('Wysunięto widget koszyka przez jQuery');
-                                    }
-                                }
-                            }
-                            // Metoda 4: Otwórz modal z iframe do koszyka jako ostateczność
-                            else {
-                                // Utworzenie modala z widokiem koszyka
-                                const modal = document.createElement('div');
-                                modal.style.position = 'fixed';
-                                modal.style.top = '0';
-                                modal.style.right = '0';
-                                modal.style.bottom = '0';
-                                modal.style.width = '400px';
-                                modal.style.background = 'white';
-                                modal.style.boxShadow = '-5px 0 15px rgba(0,0,0,0.1)';
-                                modal.style.zIndex = '9999';
-                                modal.style.transition = 'transform 0.3s ease';
-                                modal.style.transform = 'translateX(100%)';
-                                
-                                const cartIframe = document.createElement('iframe');
-                                cartIframe.src = 'https://smakosz.flavorinthejar.com/cart/';
-                                cartIframe.style.width = '100%';
-                                cartIframe.style.height = '100%';
-                                cartIframe.style.border = 'none';
-                                
-                                const closeBtn = document.createElement('button');
-                                closeBtn.textContent = 'ZAMKNIJ ×';
-                                closeBtn.style.position = 'absolute';
-                                closeBtn.style.top = '10px';
-                                closeBtn.style.right = '10px';
-                                closeBtn.style.background = 'none';
-                                closeBtn.style.border = 'none';
-                                closeBtn.style.fontSize = '16px';
-                                closeBtn.style.cursor = 'pointer';
-                                closeBtn.style.padding = '5px 10px';
-                                
-                                closeBtn.onclick = () => {
-                                    document.body.removeChild(modal);
-                                };
-                                
-                                modal.appendChild(closeBtn);
-                                modal.appendChild(cartIframe);
-                                document.body.appendChild(modal);
-                                
-                                // Animacja wysuwania
-                                setTimeout(() => {
-                                    modal.style.transform = 'translateX(0)';
-                                }, 10);
-                            }
-                        }
-                    }
-                }, 1500);
+            // Zamiast używać iframe, użyjmy bezpośredniego fetch z obsługą błędów
+            const formData = new FormData();
+            formData.append('productId', product.id.toString());
+            formData.append('quantity', '1');
+            
+            console.log('Wysyłanie żądania POST do API proxy');
+            
+            // Wykonujemy żądanie do naszego API
+            const response = await fetch('/api/add-to-cart', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Błąd dodawania do koszyka:', response.status, errorText);
+                throw new Error(`Błąd dodawania do koszyka: ${response.status}`);
             }
             
+            // Parsuj odpowiedź
+            const data = await response.json();
+            console.log('Odpowiedź z API:', data);
+            
+            // Produkt został dodany do koszyka
+            setAdded(true);
+            setTimeout(() => setAdded(false), 2000);
+            
+            // Odśwież informację o koszyku
+            refreshMiniCart(data.fragments);
+            
+            // Wysuń panel koszyka - wywołaj funkcję WooCommerce
+            setTimeout(() => {
+                // Sprawdź, czy istnieje panel boczny koszyka
+                if (typeof window !== 'undefined') {
+                    // Metoda 1: Bezpośrednie manipulowanie klasami panelu koszyka
+                    const cartSidePanel = document.querySelector('.site-header-cart-side');
+                    if (cartSidePanel && cartSidePanel instanceof HTMLElement) {
+                        cartSidePanel.classList.add('active');
+                        console.log('Wysunięto panel koszyka');
+                    } 
+                    // Metoda 2: Bezpośrednie kliknięcie ikony koszyka
+                    else {
+                        const cartIcon = document.querySelector('.cart-contents, .cart-icon, .mini-cart-icon, a[href*="cart"]');
+                        if (cartIcon && cartIcon instanceof HTMLElement) {
+                            cartIcon.click();
+                            console.log('Kliknięto ikonę koszyka');
+                        } 
+                        // Metoda 3: Użycie jQuery (jeśli dostępne)
+                        else if (typeof window !== 'undefined' && 'jQuery' in window) {
+                            const windowWithJQuery = window as WindowWithJQuery;
+                            const jQuery = windowWithJQuery.jQuery;
+                            if (jQuery) {
+                                // Próba 1: Klasyczny panel boczny
+                                const sideCart = jQuery('.site-header-cart-side');
+                                if (sideCart.length) {
+                                    sideCart.addClass('active');
+                                    console.log('Wysunięto panel koszyka przez jQuery');
+                                }
+                                // Próba 2: Widget koszyka
+                                else {
+                                    jQuery('.widget_shopping_cart_content').slideDown();
+                                    console.log('Wysunięto widget koszyka przez jQuery');
+                                }
+                            }
+                        }
+                        // Metoda 4: Otwórz modal z iframe do koszyka jako ostateczność
+                        else {
+                            // Utworzenie modala z widokiem koszyka
+                            const modal = document.createElement('div');
+                            modal.style.position = 'fixed';
+                            modal.style.top = '0';
+                            modal.style.right = '0';
+                            modal.style.bottom = '0';
+                            modal.style.width = '400px';
+                            modal.style.background = 'white';
+                            modal.style.boxShadow = '-5px 0 15px rgba(0,0,0,0.1)';
+                            modal.style.zIndex = '9999';
+                            modal.style.transition = 'transform 0.3s ease';
+                            modal.style.transform = 'translateX(100%)';
+                            
+                            const cartIframe = document.createElement('iframe');
+                            cartIframe.src = 'https://smakosz.flavorinthejar.com/cart/';
+                            cartIframe.style.width = '100%';
+                            cartIframe.style.height = '100%';
+                            cartIframe.style.border = 'none';
+                            
+                            const closeBtn = document.createElement('button');
+                            closeBtn.textContent = 'ZAMKNIJ ×';
+                            closeBtn.style.position = 'absolute';
+                            closeBtn.style.top = '10px';
+                            closeBtn.style.right = '10px';
+                            closeBtn.style.background = 'none';
+                            closeBtn.style.border = 'none';
+                            closeBtn.style.fontSize = '16px';
+                            closeBtn.style.cursor = 'pointer';
+                            closeBtn.style.padding = '5px 10px';
+                            
+                            closeBtn.onclick = () => {
+                                document.body.removeChild(modal);
+                            };
+                            
+                            modal.appendChild(closeBtn);
+                            modal.appendChild(cartIframe);
+                            document.body.appendChild(modal);
+                            
+                            // Animacja wysuwania
+                            setTimeout(() => {
+                                modal.style.transform = 'translateX(0)';
+                            }, 10);
+                        }
+                    }
+                }
+            }, 1000);
         } catch (err) {
             console.error('Błąd podczas dodawania do koszyka:', err);
             setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas dodawania do koszyka');
@@ -215,8 +231,7 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
 
     return (
         <div className="flex flex-col space-y-2">
-            {/* Ukryty iframe do obsługi AJAX bez przeładowania strony */}
-            <iframe ref={iframeRef} style={{ display: 'none' }} title="add-to-cart-frame" />
+            {/* Nie potrzebujemy już ukrytego iframe */}
             
             <div className="flex items-center gap-3">
                 <div className="relative w-16 h-16 rounded-md overflow-hidden">

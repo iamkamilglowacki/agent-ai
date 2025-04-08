@@ -27,7 +27,12 @@ export async function GET() {
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 sekund timeout
     
     try {
-      const wooResponse = await fetch(wooCommerceUrl + '?wc-ajax=get_cart_totals', {
+      // Przygotuj dane formularza w formacie application/x-www-form-urlencoded
+      const formData = new URLSearchParams();
+      formData.append('wc-ajax', 'get_cart_totals');
+      
+      // Wykonaj żądanie POST z danymi formularza w URL i body
+      const wooResponse = await fetch(wooCommerceUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -38,6 +43,7 @@ export async function GET() {
           'Referer': 'https://smakosz.flavorinthejar.com/',
           'X-Requested-With': 'XMLHttpRequest'
         },
+        body: formData.toString(),
         credentials: 'include',
         signal: controller.signal
       });
