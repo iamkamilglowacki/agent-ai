@@ -2,19 +2,13 @@
 import { useState, useEffect } from 'react';
 import React from 'react';
 import { WOOCOMMERCE_ENDPOINTS, getFullWooCommerceUrl } from '../../config/api';
+import type jQuery from 'jquery';
 
-// Deklaracja interfejsu dla jQuery w window
-interface WindowWithJQuery extends Window {
-    jQuery?: {
-        (selector: string): {
-            length: number;
-            addClass: (className: string) => void;
-            slideDown: () => void;
-        };
-        fn?: {
-            slideToggle?: () => void;
-        };
-    };
+// Deklaracja typów dla jQuery
+declare global {
+  interface Window {
+    jQuery: typeof jQuery;
+  }
 }
 
 interface WooCommerceProductProps {
