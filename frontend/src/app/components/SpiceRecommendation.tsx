@@ -75,63 +75,10 @@ const refreshMiniCart = async (fragments?: CartFragments) => {
     }
 };
 
-// Funkcja do przełączania widoczności koszyka
-const toggleCartSide = (show: boolean) => {
-    console.log('Próba przełączenia koszyka:', {show});
-    // Szukamy elementu w oknie rodzica, nie w iframe
-    const cartSide = window.parent.document.querySelector('.site-header-cart-side');
-    console.log('Znaleziony element:', cartSide);
-    
-    if (cartSide) {
-        if (show) {
-            console.log('Dodaję klasę active');
-            cartSide.classList.add('active');
-        } else {
-            console.log('Usuwam klasę active');
-            cartSide.classList.remove('active');
-        }
-        console.log('Klasy po zmianie:', cartSide.classList.toString());
-    } else {
-        console.log('Nie znaleziono elementu koszyka!');
-    }
-};
-
 export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice }) => {
     const [loading, setLoading] = useState(false);
     const [isAdded, setIsAdded] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    // Dodaj listenery na wiadomości i zdarzenia WooCommerce
-    useEffect(() => {
-        // Listener na wiadomości
-        const messageHandler = (e: MessageEvent) => {
-            console.log('Otrzymano wiadomość:', e.data);
-            if (e.data.type === 'cartUpdated' || e.data.type === 'addToCart') {
-                console.log('Wywołuję toggleCartSide(true) dla typu:', e.data.type);
-                toggleCartSide(true);
-            }
-        };
-
-        // Listener na zdarzenia WooCommerce
-        const wooCommerceHandler = () => {
-            console.log('Złapano zdarzenie added_to_cart z WooCommerce');
-            toggleCartSide(true);
-        };
-
-        // Dodaj listenery
-        window.addEventListener('message', messageHandler);
-        if (typeof jQuery !== 'undefined') {
-            jQuery(document.body).on('added_to_cart', wooCommerceHandler);
-        }
-
-        // Cleanup przy odmontowaniu komponentu
-        return () => {
-            window.removeEventListener('message', messageHandler);
-            if (typeof jQuery !== 'undefined') {
-                jQuery(document.body).off('added_to_cart', wooCommerceHandler);
-            }
-        };
-    }, []); // Pusta tablica zależności - uruchom tylko raz przy montowaniu
 
     const handleAddToCart = async (e: React.MouseEvent) => {
         e.preventDefault();
@@ -144,30 +91,29 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
 
         setLoading(true);
         setError(null);
-        console.log('Ustawiono stan loading=true');
 
         try {
-            const message = {
+            // Wyślij wiadomość o dodaniu do koszyka
+            const addToCartMessage = {
                 type: 'addToCart',
                 payload: {
                     productId: spice.id,
                     quantity: 1
                 }
             };
-
-            // Wyślij wiadomość do okna nadrzędnego
-            console.log('Wysyłanie wiadomości do rodzica:', message);
-            window.parent.postMessage(message, 'https://flavorinthejar.com');
+            window.parent.postMessage(addToCartMessage, 'https://flavorinthejar.com');
             
-            // Oznacz jako dodane
-            console.log('Ustawianie stanu added=true');
+            // Wyślij wiadomość o wysunięciu koszyka
+            const showCartMessage = {
+                type: 'showCart',
+                payload: { show: true }
+            };
+            window.parent.postMessage(showCartMessage, 'https://flavorinthejar.com');
+            
             setIsAdded(true);
             setLoading(false);
 
-            // Po 2 sekundach resetuj stan
-            console.log('Ustawianie timera na reset stanu');
             setTimeout(() => {
-                console.log('Resetowanie stanów added i loading');
                 setIsAdded(false);
                 setLoading(false);
             }, 2000);
