@@ -167,10 +167,19 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         };
 
         // Wyślij wiadomość do okna nadrzędnego
-        window.parent.postMessage(message, 'https://flavorinthejar.com'); // Zmieniono '*' na właściwy origin
+        window.parent.postMessage(message, 'https://flavorinthejar.com');
 
         // Wysuń koszyk od razu po kliknięciu
         toggleCartSide(true);
+        
+        // Ustaw stan na dodane
+        setAdded(true);
+        setLoading(false);
+        
+        // Zresetuj stan po 2 sekundach
+        setTimeout(() => {
+            setAdded(false);
+        }, 2000);
     };
 
     return (
