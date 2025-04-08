@@ -34,20 +34,62 @@ interface CartFragments {
 // Funkcja do wysuwania karty koszyka
 const toggleCartSide = (show: boolean) => {
     console.log('Próba przełączenia koszyka:', {show});
-    const cartSide = document.querySelector('.site-header-cart-side');
-    console.log('Znaleziony element:', cartSide);
+    
+    // Spróbuj różne selektory
+    const selectors = [
+        '.site-header-cart-side',
+        '#site-header-cart',
+        '.cart-side',
+        '.widget_shopping_cart',
+        '.widget_shopping_cart_content'
+    ];
+    
+    let cartSide = null;
+    for (const selector of selectors) {
+        const element = document.querySelector(selector);
+        console.log(`Szukam elementu ${selector}:`, element);
+        if (element) {
+            cartSide = element;
+            console.log('Znaleziono element koszyka:', selector);
+            break;
+        }
+    }
     
     if (cartSide) {
         if (show) {
             console.log('Dodaję klasę active');
             cartSide.classList.add('active');
+            // Spróbuj też inne klasy używane przez WooCommerce
+            cartSide.classList.add('visible');
+            cartSide.classList.add('shown');
+            if (cartSide instanceof HTMLElement) {
+                cartSide.style.display = 'block';
+            }
         } else {
             console.log('Usuwam klasę active');
             cartSide.classList.remove('active');
+            cartSide.classList.remove('visible');
+            cartSide.classList.remove('shown');
+            if (cartSide instanceof HTMLElement) {
+                cartSide.style.display = 'none';
+            }
         }
         console.log('Klasy po zmianie:', cartSide.classList.toString());
     } else {
-        console.log('Nie znaleziono elementu koszyka!');
+        console.error('Nie znaleziono elementu koszyka! Dostępne elementy:');
+        document.querySelectorAll('*').forEach(el => {
+            if (el.classList.length > 0 && (
+                el.classList.toString().includes('cart') || 
+                el.classList.toString().includes('shop') ||
+                el.id.includes('cart') ||
+                el.id.includes('shop')
+            )) {
+                console.log('Potencjalny element:', el.tagName, {
+                    id: el.id,
+                    classes: el.classList.toString()
+                });
+            }
+        });
     }
 };
 
