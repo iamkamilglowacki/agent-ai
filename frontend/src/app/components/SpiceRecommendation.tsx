@@ -97,6 +97,19 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
     const buttonRef = useRef<HTMLButtonElement>(null);
     const timeoutRef = useRef<NodeJS.Timeout>();
 
+    // Dodaj style do body przy montowaniu komponentu
+    useEffect(() => {
+        // Ukryj scrollbar w iframe
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+        
+        return () => {
+            // Przywróć scrollbar przy odmontowaniu
+            document.body.style.overflow = '';
+            document.documentElement.style.overflow = '';
+        };
+    }, []);
+
     // Funkcja do resetowania stanu przycisku
     const resetButtonState = () => {
         setLoading(false);
@@ -178,7 +191,7 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
     };
 
     return (
-        <div className="flex flex-col space-y-2">
+        <div className="flex flex-col space-y-2" style={{ overflow: 'hidden' }}>
             <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm">
                 <div className="flex items-center space-x-4">
                     {spice.image_url && (
