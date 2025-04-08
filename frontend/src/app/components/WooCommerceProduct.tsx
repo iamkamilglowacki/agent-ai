@@ -8,6 +8,7 @@ import type jQuery from 'jquery';
 declare global {
   interface Window {
     jQuery: typeof jQuery;
+    toggleCartSide: (show: boolean) => void;
   }
 }
 
@@ -52,7 +53,7 @@ const toggleCartSide = (show: boolean) => {
 
 // Dodaj toggleCartSide do window object
 if (typeof window !== 'undefined') {
-    (window as any).toggleCartSide = toggleCartSide;
+    window.toggleCartSide = toggleCartSide;
 }
 
 // Funkcja pomocnicza do aktualizacji elementów mini-koszyka
