@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Roboto_Mono } from "next/font/google";
 import "./globals.css";
-import { CartMessageHandler } from "../components/CartMessageHandler";
+import { CartMessageHandler } from "./components/CartMessageHandler";
 
 const inter = Inter({
   variable: "--font-inter",
