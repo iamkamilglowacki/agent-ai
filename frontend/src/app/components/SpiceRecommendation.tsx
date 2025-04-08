@@ -78,7 +78,8 @@ const refreshMiniCart = async (fragments?: CartFragments) => {
 // Funkcja do przełączania widoczności koszyka
 const toggleCartSide = (show: boolean) => {
     console.log('Próba przełączenia koszyka:', {show});
-    const cartSide = document.querySelector('.site-header-cart-side');
+    // Szukamy elementu w oknie rodzica, nie w iframe
+    const cartSide = window.parent.document.querySelector('.site-header-cart-side');
     console.log('Znaleziony element:', cartSide);
     
     if (cartSide) {
