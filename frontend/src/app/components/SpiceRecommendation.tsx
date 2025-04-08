@@ -115,7 +115,7 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
                                 : 'bg-green-600 text-white hover:bg-green-700'
                     }`}
                 >
-                    {loading ? 'Dodawanie...' : isAdded ? 'Dodano!' : 'Dodaj do koszyka'}
+                    {loading ? 'Dodawanie...' : isAdded ? 'Dodano!' : 'Wrzuć do dupa'}
                 </button>
             </div>
             

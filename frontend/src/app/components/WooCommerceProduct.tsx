@@ -197,7 +197,7 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
 
     const handleAddToCart = async (clickEvent: React.MouseEvent<HTMLButtonElement>) => {
         clickEvent.preventDefault();
-        console.log('Kliknięto przycisk "Dodaj do koszyka"');
+        console.log('Kliknięto przycisk "Wrzuć do basket"');
         
         if (loading || added) {
             console.log('Przycisk jest zablokowany:', { loading, added });
