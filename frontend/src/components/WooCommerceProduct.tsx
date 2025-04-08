@@ -2,6 +2,20 @@
 import { useState, useEffect } from 'react';
 import React from 'react';
 
+// Deklaracja interfejsu dla jQuery w window
+interface WindowWithJQuery extends Window {
+    jQuery?: {
+        (selector: string): {
+            length: number;
+            addClass: (className: string) => void;
+            slideDown: () => void;
+        };
+        fn?: {
+            slideToggle?: () => void;
+        };
+    };
+}
+
 interface WooCommerceProductProps {
     product: {
         id: number;
@@ -125,7 +139,8 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
                             } 
                             // Metoda 3: Użycie jQuery (jeśli dostępne)
                             else if (typeof window !== 'undefined' && 'jQuery' in window) {
-                                const jQuery = (window as any)['jQuery'];
+                                const windowWithJQuery = window as WindowWithJQuery;
+                                const jQuery = windowWithJQuery.jQuery;
                                 if (jQuery) {
                                     // Próba 1: Klasyczny panel boczny
                                     const sideCart = jQuery('.site-header-cart-side');
