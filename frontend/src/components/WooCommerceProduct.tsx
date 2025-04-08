@@ -232,14 +232,6 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
                     <h4 className="font-medium text-green-700">{product.name}</h4>
                     <div className="flex items-center justify-between">
                         <p className="text-sm text-gray-500">{product.price} zł</p>
-                        <a 
-                            href={product.add_to_cart_url}
-                            className="px-3 py-1 text-xs bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            Dodaj do koszyka
-                        </a>
                         <button 
                             onClick={handleAddToCart}
                             disabled={loading || added}
