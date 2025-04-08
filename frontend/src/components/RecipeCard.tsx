@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { SpiceRecommendation } from './SpiceRecommendation';
 import { Spice } from '../types/spices';
-import { getApiUrl } from '../config/api';
-import { API_ENDPOINTS } from '../app/config/api';
+import { getFullBackendUrl, BACKEND_ENDPOINTS } from '../config/api';
 
 interface Recipe {
     title: string;
@@ -22,7 +21,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe }) => {
     useEffect(() => {
         const fetchSpices = async () => {
             try {
-                const response = await fetch(`${getApiUrl()}/spices`);
+                const response = await fetch(getFullBackendUrl(BACKEND_ENDPOINTS.GET_SPICES));
                 if (!response.ok) {
                     throw new Error('Nie udało się pobrać przypraw');
                 }
