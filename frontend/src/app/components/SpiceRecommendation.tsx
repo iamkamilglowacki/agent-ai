@@ -75,12 +75,47 @@ const refreshMiniCart = async (fragments?: CartFragments) => {
     }
 };
 
+interface CartMessage {
+    type: string;
+    payload: {
+        productId: number;
+        quantity?: number;
+    };
+}
+
+interface CartResponse {
+    type: string;
+    success: boolean;
+}
+
 export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice }) => {
     const [loading, setLoading] = useState(false);
     const [isAdded, setIsAdded] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleAddToCart = async (e: React.MouseEvent) => {
+    useEffect(() => {
+        // Nasłuchiwanie odpowiedzi z parent window
+        const handleMessage = (event: MessageEvent) => {
+            if (event.origin !== 'https://flavorinthejar.com') return;
+
+            const data = event.data as CartResponse;
+            if (data.type === 'addToCartResponse') {
+                setLoading(false);
+                if (data.success) {
+                    setIsAdded(true);
+                    setTimeout(() => setIsAdded(false), 2000);
+                } else {
+                    setError('Nie udało się dodać produktu do koszyka');
+                    setTimeout(() => setError(null), 3000);
+                }
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, []);
+
+    const handleAddToCart = (e: React.MouseEvent) => {
         e.preventDefault();
         console.log('Kliknięto przycisk "Wrzuć do basket"');
         
@@ -93,35 +128,19 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
         setError(null);
 
         try {
-            // Wyślij wiadomość o dodaniu do koszyka
-            const addToCartMessage = {
+            const message: CartMessage = {
                 type: 'addToCart',
                 payload: {
                     productId: spice.id,
                     quantity: 1
                 }
             };
-            window.parent.postMessage(addToCartMessage, 'https://flavorinthejar.com');
-            
-            // Wyślij wiadomość o wysunięciu koszyka
-            const showCartMessage = {
-                type: 'showCart',
-                payload: { show: true }
-            };
-            window.parent.postMessage(showCartMessage, 'https://flavorinthejar.com');
-            
-            setIsAdded(true);
-            setLoading(false);
 
-            setTimeout(() => {
-                setIsAdded(false);
-                setLoading(false);
-            }, 2000);
-
+            console.log('Wysyłanie wiadomości do parent:', message);
+            window.parent.postMessage(message, 'https://flavorinthejar.com');
         } catch (err) {
-            console.error('Błąd podczas dodawania do koszyka:', err);
-            setError('Nie udało się dodać produktu do koszyka. Spróbuj ponownie.');
-            setIsAdded(false);
+            console.error('Błąd podczas wysyłania wiadomości:', err);
+            setError('Wystąpił błąd podczas komunikacji ze sklepem');
             setLoading(false);
         }
     };
