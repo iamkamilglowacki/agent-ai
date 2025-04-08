@@ -59,29 +59,24 @@ const refreshMiniCart = async (fragments?: CartFragments) => {
             }
         }
 
-        const response = await fetch(API_ENDPOINTS.CART.GET, {
+        const response = await fetch('https://flavorinthejar.com/?wc-ajax=get_cart_totals', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
-            }
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'Accept': 'application/json, text/javascript, */*; q=0.01',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'include'
         });
 
-        // Sprawdź status odpowiedzi i typ zawartości
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        const text = await response.text();
+        // Parsujemy HTML aby wyciągnąć ilość produktów
+        const cartCountMatch = text.match(/cart-contents-count[^>]*>(\d+)<\/span>/);
+        const count = cartCountMatch ? cartCountMatch[1] : '0';
         
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            throw new Error('Response is not JSON');
-        }
-
-        const data = await response.json();
-        console.log('Pobrano dane koszyka:', data);
-        updateMiniCartElements(data.count.toString());
+        updateMiniCartElements(count);
     } catch (error) {
         console.error('Błąd podczas odświeżania koszyka:', error);
-        // W przypadku błędu, ustaw wartość 0
         updateMiniCartElements('0');
     }
 };
@@ -123,137 +118,41 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         try {
             console.log('Dodawanie produktu:', product.id, product.name);
             
-            const formData = new FormData();
-            formData.append('productId', product.id.toString());
-            formData.append('quantity', '1');
+            const params = new URLSearchParams({
+                'add-to-cart': product.id.toString(),
+                'quantity': '1',
+                'wc-ajax': 'add_to_cart'
+            });
             
-            console.log('Wysyłanie żądania POST do API proxy');
-            
-            const response = await fetch(API_ENDPOINTS.CART.ADD, {
+            const response = await fetch(`https://flavorinthejar.com/?${params.toString()}`, {
                 method: 'POST',
-                body: formData,
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'Accept': 'application/json, text/javascript, */*; q=0.01',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 credentials: 'include'
             });
             
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Błąd dodawania do koszyka:', response.status, errorText);
                 throw new Error(`Błąd dodawania do koszyka: ${response.status}`);
             }
             
-            // Parsuj odpowiedź
-            let data;
-            try {
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    data = await response.json();
-                } else {
-                    const text = await response.text();
-                    console.warn('Nieoczekiwany format odpowiedzi:', text.substring(0, 100));
-                    // Spróbuj stworzyć podstawową strukturę danych
-                    data = { fragments: { cart_count: 1 } };
-                }
-            } catch (parseError) {
-                console.error('Błąd parsowania odpowiedzi:', parseError);
-                // Jeśli parsowanie nie powiodło się, użyj domyślnych danych
-                data = { fragments: { cart_count: 1 } };
+            const data = await response.json();
+            console.log('Odpowiedź z WooCommerce:', data);
+            
+            // Aktualizuj mini-koszyk
+            if (data.fragments) {
+                refreshMiniCart(data.fragments);
+            } else {
+                refreshMiniCart();
             }
             
-            console.log('Odpowiedź z API:', data);
-            
-            // Produkt został dodany do koszyka
             setAdded(true);
             setTimeout(() => setAdded(false), 2000);
-            
-            // Odśwież informację o koszyku
-            refreshMiniCart(data.fragments);
-            
-            // Wysuń panel koszyka - wywołaj funkcję WooCommerce
-            setTimeout(() => {
-                // Sprawdź, czy istnieje panel boczny koszyka
-                if (typeof window !== 'undefined') {
-                    // Metoda 1: Bezpośrednie manipulowanie klasami panelu koszyka
-                    const cartSidePanel = document.querySelector('.site-header-cart-side');
-                    if (cartSidePanel && cartSidePanel instanceof HTMLElement) {
-                        cartSidePanel.classList.add('active');
-                        console.log('Wysunięto panel koszyka');
-                    } 
-                    // Metoda 2: Bezpośrednie kliknięcie ikony koszyka
-                    else {
-                        const cartIcon = document.querySelector('.cart-contents, .cart-icon, .mini-cart-icon, a[href*="cart"]');
-                        if (cartIcon && cartIcon instanceof HTMLElement) {
-                            cartIcon.click();
-                            console.log('Kliknięto ikonę koszyka');
-                        } 
-                        // Metoda 3: Użycie jQuery (jeśli dostępne)
-                        else if (typeof window !== 'undefined' && 'jQuery' in window) {
-                            const windowWithJQuery = window as WindowWithJQuery;
-                            const jQuery = windowWithJQuery.jQuery;
-                            if (jQuery) {
-                                // Próba 1: Klasyczny panel boczny
-                                const sideCart = jQuery('.site-header-cart-side');
-                                if (sideCart.length) {
-                                    sideCart.addClass('active');
-                                    console.log('Wysunięto panel koszyka przez jQuery');
-                                }
-                                // Próba 2: Widget koszyka
-                                else {
-                                    jQuery('.widget_shopping_cart_content').slideDown();
-                                    console.log('Wysunięto widget koszyka przez jQuery');
-                                }
-                            }
-                        }
-                        // Metoda 4: Otwórz modal z iframe do koszyka jako ostateczność
-                        else {
-                            // Utworzenie modala z widokiem koszyka
-                            const modal = document.createElement('div');
-                            modal.style.position = 'fixed';
-                            modal.style.top = '0';
-                            modal.style.right = '0';
-                            modal.style.bottom = '0';
-                            modal.style.width = '400px';
-                            modal.style.background = 'white';
-                            modal.style.boxShadow = '-5px 0 15px rgba(0,0,0,0.1)';
-                            modal.style.zIndex = '9999';
-                            modal.style.transition = 'transform 0.3s ease';
-                            modal.style.transform = 'translateX(100%)';
-                            
-                            const cartIframe = document.createElement('iframe');
-                            cartIframe.src = '/cart/';
-                            cartIframe.style.width = '100%';
-                            cartIframe.style.height = '100%';
-                            cartIframe.style.border = 'none';
-                            
-                            const closeBtn = document.createElement('button');
-                            closeBtn.textContent = 'ZAMKNIJ ×';
-                            closeBtn.style.position = 'absolute';
-                            closeBtn.style.top = '10px';
-                            closeBtn.style.right = '10px';
-                            closeBtn.style.background = 'none';
-                            closeBtn.style.border = 'none';
-                            closeBtn.style.fontSize = '16px';
-                            closeBtn.style.cursor = 'pointer';
-                            closeBtn.style.padding = '5px 10px';
-                            
-                            closeBtn.onclick = () => {
-                                document.body.removeChild(modal);
-                            };
-                            
-                            modal.appendChild(closeBtn);
-                            modal.appendChild(cartIframe);
-                            document.body.appendChild(modal);
-                            
-                            // Animacja wysuwania
-                            setTimeout(() => {
-                                modal.style.transform = 'translateX(0)';
-                            }, 10);
-                        }
-                    }
-                }
-            }, 1000);
         } catch (err) {
             console.error('Błąd podczas dodawania do koszyka:', err);
-            setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas dodawania do koszyka');
+            setError('Nie udało się dodać produktu do koszyka');
         } finally {
             setLoading(false);
         }

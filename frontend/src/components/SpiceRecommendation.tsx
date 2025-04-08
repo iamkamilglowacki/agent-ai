@@ -16,19 +16,24 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
 
     // Funkcja do odświeżania mini-koszyka
     const refreshMiniCart = () => {
-        fetch(API_ENDPOINTS.CART.GET, {
+        fetch('https://flavorinthejar.com/?wc-ajax=get_cart_totals', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'Accept': 'application/json, text/javascript, */*; q=0.01',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             credentials: 'include'
         })
-        .then(response => response.json())
-        .then(data => {
+        .then(response => response.text())
+        .then(text => {
+            const cartCountMatch = text.match(/cart-contents-count[^>]*>(\d+)<\/span>/);
+            const count = cartCountMatch ? cartCountMatch[1] : '0';
+            
             const miniCartElements = document.querySelectorAll('.mini-cart-count');
             miniCartElements.forEach(element => {
                 if (element instanceof HTMLElement) {
-                    element.innerText = data.count?.toString() || '0';
+                    element.innerText = count;
                     element.classList.add('cart-updated');
                     setTimeout(() => element.classList.remove('cart-updated'), 1000);
                 }
@@ -43,45 +48,37 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
         setError(null);
         
         try {
-            const formData = new FormData();
-            formData.append('productId', spice.id.toString());
-            formData.append('quantity', '1');
+            const params = new URLSearchParams({
+                'add-to-cart': spice.id.toString(),
+                'quantity': '1',
+                'wc-ajax': 'add_to_cart'
+            });
             
-            const response = await fetch(API_ENDPOINTS.CART.ADD, {
+            const response = await fetch(`https://flavorinthejar.com/?${params.toString()}`, {
                 method: 'POST',
-                body: formData,
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'Accept': 'application/json, text/javascript, */*; q=0.01',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 credentials: 'include'
             });
-
-            // Produkt został dodany do koszyka (zakładamy, że iframe zadziała)
+            
+            if (!response.ok) {
+                throw new Error(`Błąd dodawania do koszyka: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('Odpowiedź z WooCommerce:', data);
+            
             setIsAdded(true);
             setTimeout(() => setIsAdded(false), 2000);
             
             // Odśwież informację o koszyku
-            setTimeout(refreshMiniCart, 1000);
-            
-            // Wysuń panel koszyka
-            setTimeout(() => {
-                if (typeof window !== 'undefined') {
-                    // Metoda 1: Bezpośrednie manipulowanie klasami panelu koszyka
-                    const cartSidePanel = document.querySelector('.site-header-cart-side');
-                    if (cartSidePanel && cartSidePanel instanceof HTMLElement) {
-                        cartSidePanel.classList.add('active');
-                        console.log('Wysunięto panel koszyka');
-                    } 
-                    // Metoda 2: Bezpośrednie kliknięcie ikony koszyka
-                    else {
-                        const cartIcon = document.querySelector('.cart-contents, .cart-icon, .mini-cart-icon, a[href*="cart"]');
-                        if (cartIcon && cartIcon instanceof HTMLElement) {
-                            cartIcon.click();
-                            console.log('Kliknięto ikonę koszyka');
-                        } 
-                    }
-                }
-            }, 1500);
+            refreshMiniCart();
         } catch (err) {
             console.error('Błąd podczas dodawania do koszyka:', err);
-            setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas dodawania do koszyka');
+            setError('Nie udało się dodać produktu do koszyka');
         } finally {
             setLoading(false);
         }
