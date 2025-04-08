@@ -12,7 +12,6 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
     const [loading, setLoading] = useState(false);
     const [isAdded, setIsAdded] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const iframeRef = useRef<HTMLIFrameElement>(null);
 
     // Funkcja do odświeżania mini-koszyka
     const refreshMiniCart = () => {
@@ -42,53 +41,29 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
         .catch(error => console.error('Błąd podczas odświeżania koszyka:', error));
     };
 
-    const handleAddToCart = async (e: React.MouseEvent) => {
+    const handleAddToCart = (e: React.MouseEvent) => {
         e.preventDefault();
+        if (loading || isAdded) return;
+
         setLoading(true);
         setError(null);
         
-        try {
-            const params = new URLSearchParams({
-                'add-to-cart': spice.id.toString(),
-                'quantity': '1',
-                'wc-ajax': 'add_to_cart'
-            });
-            
-            const response = await fetch(`https://flavorinthejar.com/?${params.toString()}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                    'Accept': 'application/json, text/javascript, */*; q=0.01',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                credentials: 'include'
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Błąd dodawania do koszyka: ${response.status}`);
+        const message = {
+            type: 'addToCart',
+            payload: {
+                productId: spice.id,
+                quantity: 1
             }
-            
-            const data = await response.json();
-            console.log('Odpowiedź z WooCommerce:', data);
-            
-            setIsAdded(true);
-            setTimeout(() => setIsAdded(false), 2000);
-            
-            // Odśwież informację o koszyku
-            refreshMiniCart();
-        } catch (err) {
-            console.error('Błąd podczas dodawania do koszyka:', err);
-            setError('Nie udało się dodać produktu do koszyka');
-        } finally {
-            setLoading(false);
-        }
+        };
+
+        // Wyślij wiadomość do okna nadrzędnego
+        window.parent.postMessage(message, '*'); // Pamiętaj, aby ustawić poprawny targetOrigin w produkcji
+
+        // Podobnie jak w WooCommerceProduct, czekamy na odpowiedź zwrotną
     };
 
     return (
         <div className="flex flex-col space-y-2">
-            {/* Ukryty iframe do obsługi AJAX bez przeładowania strony */}
-            <iframe ref={iframeRef} style={{ display: 'none' }} title="add-to-cart-frame" />
-            
             <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm">
                 <div className="flex items-center space-x-4">
                     {spice.image_url && (

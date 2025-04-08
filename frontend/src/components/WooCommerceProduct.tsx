@@ -85,77 +85,31 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
     const [loading, setLoading] = useState(false);
     const [added, setAdded] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const iframeRef = React.useRef<HTMLIFrameElement>(null);
 
-    // Nasłuchuj na zdarzenie added_to_cart z WooCommerce
-    useEffect(() => {
-        const handleAddedToCart = (e: CustomEvent<{ fragments: CartFragments; cart_hash: string; button?: HTMLElement }>) => {
-            console.log('Produkt dodany do koszyka:', e.detail.fragments);
-            refreshMiniCart(e.detail.fragments);
-            
-            // Jeśli mamy przycisk, dodaj animację
-            const button = e.detail.button;
-            if (button) {
-                button.classList.add('added-to-cart');
-                setTimeout(() => button.classList.remove('added-to-cart'), 1000);
-            }
-        };
-
-        // Dodaj nasłuchiwanie na zdarzenie
-        document.body.addEventListener('added_to_cart', handleAddedToCart as EventListener);
-
-        // Usuń nasłuchiwanie przy odmontowaniu komponentu
-        return () => {
-            document.body.removeEventListener('added_to_cart', handleAddedToCart as EventListener);
-        };
-    }, []);
-
-    const handleAddToCart = async (clickEvent: React.MouseEvent<HTMLButtonElement>) => {
+    const handleAddToCart = (clickEvent: React.MouseEvent<HTMLButtonElement>) => {
         clickEvent.preventDefault();
+        if (loading || added) return; // Zapobiegaj wielokrotnemu kliknięciu
+
         setLoading(true);
         setError(null);
 
-        try {
-            const formData = new URLSearchParams();
-            formData.append('product_id', product.id.toString());
-            formData.append('quantity', '1');
-
-            const response = await fetch('/api/add-to-cart', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: formData.toString(),
-                credentials: 'include'
-            });
-
-            if (!response.ok) {
-                throw new Error('Błąd podczas dodawania do koszyka');
+        const message = {
+            type: 'addToCart',
+            payload: {
+                productId: product.id,
+                quantity: 1 // Załóżmy, że zawsze dodajemy 1
             }
+        };
 
-            const data = await response.json();
-            
-            if (data.fragments) {
-                // Wywołaj event added_to_cart, który zostanie obsłużony przez refreshMiniCart
-                const cartEvent = new CustomEvent('added_to_cart', {
-                    detail: {
-                        fragments: data.fragments,
-                        cart_hash: data.cart_hash,
-                        button: clickEvent.currentTarget
-                    }
-                });
-                document.body.dispatchEvent(cartEvent);
-            }
+        // Wyślij wiadomość do okna nadrzędnego
+        // Użyj '*' jako targetOrigin na razie dla uproszczenia,
+        // ale w produkcji ustaw na 'https://flavorinthejar.com'
+        window.parent.postMessage(message, '*'); 
 
-            setAdded(true);
-            setTimeout(() => setAdded(false), 2000);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Wystąpił błąd');
-        } finally {
-            setLoading(false);
-        }
+        // Nie ustawiamy od razu 'added' na true, bo czekamy na odpowiedź od rodzica.
+        // Możemy dodać timeout na loading, jeśli odpowiedź nie przyjdzie.
+        // Na razie upraszczamy i po prostu pokazujemy loading.
+        // W obsłudze wiadomości zwrotnej ustawimy 'added'.
     };
 
     return (

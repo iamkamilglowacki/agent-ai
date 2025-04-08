@@ -46,17 +46,6 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe }) => {
         return spices[randomIndex];
     };
 
-    const refreshMiniCart = () => {
-        fetch(API_ENDPOINTS.CART.GET, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include'
-        })
-        .then(response => response.json())
-    };
-
     return (
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
             <h3 className="text-2xl font-semibold text-green-700 mb-4">{recipe.title}</h3>
