@@ -28,6 +28,10 @@ export const API_ENDPOINTS = {
     ANALYZE_IMAGE: '/api/analyze/image',
     SEARCH_RECIPES: '/api/recipes/search',
     GET_SPICES: '/api/spices',
+    CART: {
+        GET: '/api/cart/get',
+        ADD: '/api/add-to-cart'
+    }
 };
 
 console.log('Configured API endpoints:', API_ENDPOINTS); 

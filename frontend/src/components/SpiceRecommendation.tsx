@@ -2,12 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Spice } from '../types/spices';
+import { API_ENDPOINTS } from '../app/config/api';
 
 interface SpiceRecommendationProps {
     spice: Spice;
 }
-
-const SHOP_URL = 'https://flavorinthejar.com';
 
 export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice }) => {
     const [loading, setLoading] = useState(false);
@@ -17,8 +16,11 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
 
     // Funkcja do odświeżania mini-koszyka
     const refreshMiniCart = () => {
-        fetch('/api/cart/get', {
-            method: 'GET',
+        fetch(API_ENDPOINTS.CART.GET, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
             credentials: 'include'
         })
         .then(response => response.json())
@@ -41,42 +43,42 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
         setError(null);
         
         try {
-            console.log('Dodawanie produktu przez iframe:', spice.id, spice.name);
+            const formData = new FormData();
+            formData.append('productId', spice.id.toString());
+            formData.append('quantity', '1');
             
-            // Dodaj produkt przez iframe bez przeładowania strony
-            if (iframeRef.current) {
-                // Użyj add-to-cart URL z parametrem wc-ajax
-                const ajaxUrl = `https://smakosz.flavorinthejar.com/?add-to-cart=${spice.id}&quantity=1&wc-ajax=add_to_cart`;
-                iframeRef.current.src = ajaxUrl;
-                
-                // Produkt został dodany do koszyka (zakładamy, że iframe zadziała)
-                setIsAdded(true);
-                setTimeout(() => setIsAdded(false), 2000);
-                
-                // Odśwież informację o koszyku
-                setTimeout(refreshMiniCart, 1000);
-                
-                // Wysuń panel koszyka
-                setTimeout(() => {
-                    if (typeof window !== 'undefined') {
-                        // Metoda 1: Bezpośrednie manipulowanie klasami panelu koszyka
-                        const cartSidePanel = document.querySelector('.site-header-cart-side');
-                        if (cartSidePanel && cartSidePanel instanceof HTMLElement) {
-                            cartSidePanel.classList.add('active');
-                            console.log('Wysunięto panel koszyka');
+            const response = await fetch(API_ENDPOINTS.CART.ADD, {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+
+            // Produkt został dodany do koszyka (zakładamy, że iframe zadziała)
+            setIsAdded(true);
+            setTimeout(() => setIsAdded(false), 2000);
+            
+            // Odśwież informację o koszyku
+            setTimeout(refreshMiniCart, 1000);
+            
+            // Wysuń panel koszyka
+            setTimeout(() => {
+                if (typeof window !== 'undefined') {
+                    // Metoda 1: Bezpośrednie manipulowanie klasami panelu koszyka
+                    const cartSidePanel = document.querySelector('.site-header-cart-side');
+                    if (cartSidePanel && cartSidePanel instanceof HTMLElement) {
+                        cartSidePanel.classList.add('active');
+                        console.log('Wysunięto panel koszyka');
+                    } 
+                    // Metoda 2: Bezpośrednie kliknięcie ikony koszyka
+                    else {
+                        const cartIcon = document.querySelector('.cart-contents, .cart-icon, .mini-cart-icon, a[href*="cart"]');
+                        if (cartIcon && cartIcon instanceof HTMLElement) {
+                            cartIcon.click();
+                            console.log('Kliknięto ikonę koszyka');
                         } 
-                        // Metoda 2: Bezpośrednie kliknięcie ikony koszyka
-                        else {
-                            const cartIcon = document.querySelector('.cart-contents, .cart-icon, .mini-cart-icon, a[href*="cart"]');
-                            if (cartIcon && cartIcon instanceof HTMLElement) {
-                                cartIcon.click();
-                                console.log('Kliknięto ikonę koszyka');
-                            } 
-                        }
                     }
-                }, 1500);
-            }
-            
+                }
+            }, 1500);
         } catch (err) {
             console.error('Błąd podczas dodawania do koszyka:', err);
             setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas dodawania do koszyka');

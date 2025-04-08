@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { SpiceRecommendation } from './SpiceRecommendation';
 import { Spice } from '../types/spices';
 import { getApiUrl } from '../config/api';
+import { API_ENDPOINTS } from '../app/config/api';
 
 interface Recipe {
     title: string;
@@ -43,6 +44,17 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe }) => {
         if (spices.length === 0) return null;
         const randomIndex = Math.floor(Math.random() * spices.length);
         return spices[randomIndex];
+    };
+
+    const refreshMiniCart = () => {
+        fetch(API_ENDPOINTS.CART.GET, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+        })
+        .then(response => response.json())
     };
 
     return (

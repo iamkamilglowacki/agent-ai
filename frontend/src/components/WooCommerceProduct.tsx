@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import React from 'react';
+import { API_ENDPOINTS } from '../app/config/api';
 
 // Deklaracja interfejsu dla jQuery w window
 interface WindowWithJQuery extends Window {
@@ -58,7 +59,7 @@ const refreshMiniCart = async (fragments?: CartFragments) => {
             }
         }
 
-        const response = await fetch('/api/cart/get', {
+        const response = await fetch(API_ENDPOINTS.CART.GET, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -122,15 +123,13 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
         try {
             console.log('Dodawanie produktu:', product.id, product.name);
             
-            // Zamiast używać iframe, użyjmy bezpośredniego fetch z obsługą błędów
             const formData = new FormData();
             formData.append('productId', product.id.toString());
             formData.append('quantity', '1');
             
             console.log('Wysyłanie żądania POST do API proxy');
             
-            // Wykonujemy żądanie do naszego API
-            const response = await fetch('/api/add-to-cart', {
+            const response = await fetch(API_ENDPOINTS.CART.ADD, {
                 method: 'POST',
                 body: formData,
                 credentials: 'include'
@@ -220,7 +219,7 @@ export default function WooCommerceProduct({ product }: WooCommerceProductProps)
                             modal.style.transform = 'translateX(100%)';
                             
                             const cartIframe = document.createElement('iframe');
-                            cartIframe.src = 'https://smakosz.flavorinthejar.com/cart/';
+                            cartIframe.src = '/cart/';
                             cartIframe.style.width = '100%';
                             cartIframe.style.height = '100%';
                             cartIframe.style.border = 'none';
