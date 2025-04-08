@@ -4,8 +4,19 @@ export {};
 declare global {
     interface Window {
         toggleCartSide: (show: boolean) => void;
-        jQuery: any; // To już istnieje w projekcie, więc nie powinno generować błędu
+        jQuery: JQueryStatic;
     }
+}
+
+interface JQueryStatic {
+    (selector: string | Element): {
+        on: (event: string, callback: () => void) => void;
+        off: (event: string) => void;
+    };
+    (document: Document): {
+        on: (event: string, callback: () => void) => void;
+        off: (event: string) => void;
+    };
 }
 
 // Funkcja do wysuwania karty koszyka
@@ -30,6 +41,5 @@ const toggleCartSide = (show: boolean): void => {
 
 // Dodaj toggleCartSide do window object
 if (typeof window !== 'undefined') {
-    // @ts-ignore
     window.toggleCartSide = toggleCartSide;
 } 
