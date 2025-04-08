@@ -2,7 +2,7 @@
 
 // Stałe URL-e dla różnych serwisów (bez końcowych ukośników)
 const BACKEND_BASE_URL = 'https://agent-ai.up.railway.app';
-const WOOCOMMERCE_BASE_URL = process.env.NEXT_PUBLIC_WOOCOMMERCE_URL || 'https://spice-ai.pl';
+const WOOCOMMERCE_BASE_URL = process.env.NEXT_PUBLIC_WOOCOMMERCE_URL || 'https://flavorinthejar.com';
 
 // Funkcja pomocnicza do łączenia URL-i
 function joinUrl(base: string, path: string): string {

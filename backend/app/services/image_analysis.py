@@ -150,6 +150,15 @@ async def analyze_image_query(file: UploadFile) -> StreamingResponse:
             
         except Exception as api_error:
             logger.error(f"Błąd podczas komunikacji z OpenAI API: {str(api_error)}")
+            
+            # Sprawdź czy to błąd limitu (quota)
+            error_message = str(api_error).lower()
+            if "insufficient_quota" in error_message or "quota" in error_message or "billing" in error_message:
+                raise HTTPException(
+                    status_code=402, 
+                    detail="Przekroczono limit użycia API OpenAI. Prosimy spróbować później lub skontaktować się z administratorem."
+                )
+            
             raise HTTPException(status_code=500, detail=f"Błąd podczas komunikacji z OpenAI: {str(api_error)}")
     except HTTPException as he:
         logger.error(f"HTTP Error: {str(he)}")

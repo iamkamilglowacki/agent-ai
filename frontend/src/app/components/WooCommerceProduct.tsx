@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import React from 'react';
-import { API_ENDPOINTS } from '../app/config/api';
+import { WOOCOMMERCE_ENDPOINTS, getFullWooCommerceUrl } from '../../config/api';
 
 // Deklaracja interfejsu dla jQuery w window
 interface WindowWithJQuery extends Window {
@@ -59,22 +59,22 @@ const refreshMiniCart = async (fragments?: CartFragments) => {
             }
         }
 
-        const response = await fetch('https://flavorinthejar.com/?wc-ajax=get_cart_totals', {
-            method: 'POST',
+        const response = await fetch(getFullWooCommerceUrl(WOOCOMMERCE_ENDPOINTS.CART.GET), {
+            method: 'GET',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                'Accept': 'application/json, text/javascript, */*; q=0.01',
-                'X-Requested-With': 'XMLHttpRequest'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             credentials: 'include'
         });
 
-        const text = await response.text();
-        // Parsujemy HTML aby wyciągnąć ilość produktów
-        const cartCountMatch = text.match(/cart-contents-count[^>]*>(\d+)<\/span>/);
-        const count = cartCountMatch ? cartCountMatch[1] : '0';
-        
-        updateMiniCartElements(count);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const count = data.cart_count || '0';
+        updateMiniCartElements(count.toString());
     } catch (error) {
         console.error('Błąd podczas odświeżania koszyka:', error);
         updateMiniCartElements('0');
