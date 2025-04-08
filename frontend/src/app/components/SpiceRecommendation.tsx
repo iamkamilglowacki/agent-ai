@@ -66,25 +66,51 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
     const [isAdded, setIsAdded] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleAddToCart = (e: React.MouseEvent) => {
+    const handleAddToCart = async (e: React.MouseEvent) => {
         e.preventDefault();
-        if (loading || isAdded) return;
+        console.log('Kliknięto przycisk "Wrzuć do basket"');
+        
+        if (loading || isAdded) {
+            console.log('Przycisk jest zablokowany:', { loading, isAdded });
+            return;
+        }
 
         setLoading(true);
         setError(null);
-        
-        const message = {
-            type: 'addToCart',
-            payload: {
-                productId: spice.id,
-                quantity: 1
-            }
-        };
+        console.log('Ustawiono stan loading=true');
 
-        // Wyślij wiadomość do okna nadrzędnego
-        window.parent.postMessage(message, '*'); // Pamiętaj, aby ustawić poprawny targetOrigin w produkcji
+        try {
+            const message = {
+                type: 'addToCart',
+                payload: {
+                    productId: spice.id,
+                    quantity: 1
+                }
+            };
 
-        // Podobnie jak w WooCommerceProduct, czekamy na odpowiedź zwrotną
+            // Wyślij wiadomość do okna nadrzędnego
+            console.log('Wysyłanie wiadomości do rodzica:', message);
+            window.parent.postMessage(message, 'https://flavorinthejar.com');
+            
+            // Oznacz jako dodane
+            console.log('Ustawianie stanu added=true');
+            setIsAdded(true);
+            setLoading(false);
+
+            // Po 2 sekundach resetuj stan
+            console.log('Ustawianie timera na reset stanu');
+            setTimeout(() => {
+                console.log('Resetowanie stanów added i loading');
+                setIsAdded(false);
+                setLoading(false);
+            }, 2000);
+
+        } catch (err) {
+            console.error('Błąd podczas dodawania do koszyka:', err);
+            setError('Nie udało się dodać produktu do koszyka. Spróbuj ponownie.');
+            setIsAdded(false);
+            setLoading(false);
+        }
     };
 
     return (
@@ -115,7 +141,7 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
                                 : 'bg-green-600 text-white hover:bg-green-700'
                     }`}
                 >
-                    {loading ? 'Dodawanie...' : isAdded ? 'Dodano!' : 'Wrzuć do dupa'}
+                    {loading ? 'Dodawanie...' : isAdded ? 'Dodano!' : 'Wrzuć do basket'}
                 </button>
             </div>
             
