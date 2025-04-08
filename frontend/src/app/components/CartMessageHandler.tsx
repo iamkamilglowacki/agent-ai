@@ -21,6 +21,18 @@ const updateMiniCartElements = (count: string) => {
   });
 };
 
+// Funkcja do wysuwania karty koszyka
+const toggleCartSide = (show: boolean) => {
+  const cartSide = document.querySelector('.site-header-cart-side');
+  if (cartSide) {
+    if (show) {
+      cartSide.classList.add('active');
+    } else {
+      cartSide.classList.remove('active');
+    }
+  }
+};
+
 export function CartMessageHandler() {
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -39,6 +51,9 @@ export function CartMessageHandler() {
         // Aktualizuj UI koszyka
         if (cartData.fragments && cartData.fragments.cart_count !== undefined) {
           updateMiniCartElements(cartData.fragments.cart_count.toString());
+          
+          // Wysuń kartę koszyka
+          toggleCartSide(true);
         }
         
         // Wywołaj globalne zdarzenie, aby inne komponenty mogły zareagować
