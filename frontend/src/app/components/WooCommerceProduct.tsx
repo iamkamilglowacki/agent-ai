@@ -144,6 +144,7 @@ const refreshMiniCart = async (fragments?: CartFragments) => {
     }
 };
 
+// Komponent produktu WooCommerce - zaktualizowany
 export default function WooCommerceProduct({ product }: WooCommerceProductProps) {
     const [loading, setLoading] = useState(false);
     const [added, setAdded] = useState(false);
