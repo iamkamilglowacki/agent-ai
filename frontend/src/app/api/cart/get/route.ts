@@ -22,6 +22,10 @@ export async function GET() {
     const wooCommerceUrl = 'https://smakosz.flavorinthejar.com/';
     console.log('[API cart/get] Wysyłanie żądania do:', wooCommerceUrl + '?wc-ajax=get_cart_totals');
     
+    // Ustaw timeout dla żądania
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 sekund timeout
+    
     try {
       const wooResponse = await fetch(wooCommerceUrl + '?wc-ajax=get_cart_totals', {
         method: 'POST',
@@ -34,8 +38,12 @@ export async function GET() {
           'Referer': 'https://smakosz.flavorinthejar.com/',
           'X-Requested-With': 'XMLHttpRequest'
         },
-        credentials: 'include'
+        credentials: 'include',
+        signal: controller.signal
       });
+      
+      // Wyczyść timeout
+      clearTimeout(timeoutId);
 
       console.log('[API cart/get] Status odpowiedzi WooCommerce:', wooResponse.status, wooResponse.statusText);
       
@@ -97,12 +105,31 @@ export async function GET() {
 
       // Przekaż ciasteczka do klienta
       setCookieHeaders.forEach(cookieHeader => {
-        response.headers.append('set-cookie', cookieHeader);
+        // Modyfikujemy ciasteczka, aby były SameSite=None; Secure
+        if (!cookieHeader.includes('SameSite=None')) {
+          const modifiedCookie = cookieHeader.replace(/;?\s*$/, '; SameSite=None; Secure');
+          response.headers.append('set-cookie', modifiedCookie);
+          console.log('[API cart/get] Zmodyfikowane ciasteczko:', modifiedCookie);
+        } else {
+          response.headers.append('set-cookie', cookieHeader);
+        }
       });
 
       return response;
     } catch (fetchError: unknown) {
       console.error('[API cart/get] Błąd podczas pobierania danych z WooCommerce:', fetchError);
+      
+      // Sprawdź czy to błąd timeoutu
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        return NextResponse.json({
+          success: false,
+          count: 0,
+          total: '0.00 zł',
+          data: {},
+          error: 'Timeout podczas łączenia z serwerem WooCommerce. Spróbuj ponownie później.',
+          timeout: true
+        }, { status: 504 });
+      }
       
       // W przypadku błędu połączenia, zwróć pusty koszyk zamiast błędu 500
       return NextResponse.json({

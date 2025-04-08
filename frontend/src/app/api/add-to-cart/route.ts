@@ -42,114 +42,147 @@ export async function POST(request: Request) {
     });
     console.log('[API] Wysyłanie żądania POST do WooCommerce:', wooCommerceUrl + '?' + wooCommerceParams.toString());
 
-    const wooResponse = await fetch(wooCommerceUrl + '?' + wooCommerceParams.toString(), {
-      method: 'POST',
-      headers: {
-        'Cookie': cookieHeader,
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'User-Agent': 'Mozilla/5.0 (compatible; FlavoAI/1.0)',
-        'Origin': 'https://smakosz.flavorinthejar.com',
-        'Referer': 'https://smakosz.flavorinthejar.com/',
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      credentials: 'include'
-    });
+    // Ustaw timeout dla żądania
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 sekund timeout
 
-    console.log(`[API] Odpowiedź WooCommerce: ${wooResponse.status} ${wooResponse.statusText}`);
-    
-    // Pobierz i zaloguj nagłówki odpowiedzi
-    const responseHeaders = Object.fromEntries([...wooResponse.headers.entries()]);
-    console.log('[API] Nagłówki odpowiedzi:', responseHeaders);
-
-    // Zbierz wszystkie nagłówki Set-Cookie
-    const setCookieHeaders: string[] = [];
-    wooResponse.headers.forEach((value, key) => {
-      if (key.toLowerCase() === 'set-cookie') {
-        setCookieHeaders.push(value);
-        console.log('[API] Set-Cookie otrzymane:', value);
-      }
-    });
-
-    // Sprawdź czy odpowiedź jest JSON
-    const contentType = wooResponse.headers.get('content-type');
-    let responseData;
-    let responseText;
-    
     try {
-      if (contentType && contentType.includes('application/json')) {
-        responseData = await wooResponse.json();
-        console.log('[API] Odpowiedź JSON z WooCommerce:', responseData);
-      } else {
-        responseText = await wooResponse.text();
-        console.log('[API] Odpowiedź tekstowa z WooCommerce:', responseText.substring(0, 200) + '...');
-        try {
-          // Spróbuj sparsować jako JSON mimo braku Content-Type
-          responseData = JSON.parse(responseText);
-          console.log('[API] Sparsowano odpowiedź tekstową jako JSON:', responseData);
-        } catch (jsonError) {
-          console.error('[API] Nie udało się sparsować odpowiedzi jako JSON:', jsonError);
-        }
-      }
-    } catch (error) {
-      console.error('[API] Błąd podczas przetwarzania odpowiedzi:', error);
-      responseText = await wooResponse.text();
-      console.log('[API] Odpowiedź tekstowa z WooCommerce (po błędzie):', responseText.substring(0, 200) + '...');
-    }
-
-    if (!wooResponse.ok) {
-      console.error(`[API] Błąd podczas dodawania do koszyka: ${wooResponse.status}`);
-      return NextResponse.json(
-        { 
-          error: 'Nie udało się dodać produktu do koszyka',
-          status: wooResponse.status,
-          statusText: wooResponse.statusText,
-          response: responseData || responseText?.substring(0, 200) || null
+      const wooResponse = await fetch(wooCommerceUrl + '?' + wooCommerceParams.toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'Cookie': cookieHeader,
+          'Accept': 'application/json, text/javascript, */*; q=0.01',
+          'User-Agent': 'Mozilla/5.0 (compatible; FlavoAI/1.0)',
+          'Origin': 'https://smakosz.flavorinthejar.com',
+          'Referer': 'https://smakosz.flavorinthejar.com/',
+          'X-Requested-With': 'XMLHttpRequest'
         },
+        credentials: 'include',
+        signal: controller.signal
+      });
+      
+      // Wyczyść timeout
+      clearTimeout(timeoutId);
+
+      console.log(`[API] Odpowiedź WooCommerce: ${wooResponse.status} ${wooResponse.statusText}`);
+      
+      // Pobierz i zaloguj nagłówki odpowiedzi
+      const responseHeaders = Object.fromEntries([...wooResponse.headers.entries()]);
+      console.log('[API] Nagłówki odpowiedzi:', responseHeaders);
+
+      // Zbierz wszystkie nagłówki Set-Cookie
+      const setCookieHeaders: string[] = [];
+      wooResponse.headers.forEach((value, key) => {
+        if (key.toLowerCase() === 'set-cookie') {
+          setCookieHeaders.push(value);
+          console.log('[API] Set-Cookie otrzymane:', value);
+        }
+      });
+
+      // Sprawdź czy odpowiedź jest JSON
+      const contentType = wooResponse.headers.get('content-type');
+      let responseData;
+      let responseText;
+      
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          responseData = await wooResponse.json();
+          console.log('[API] Odpowiedź JSON z WooCommerce:', responseData);
+        } else {
+          responseText = await wooResponse.text();
+          console.log('[API] Odpowiedź tekstowa z WooCommerce:', responseText.substring(0, 200) + '...');
+          try {
+            // Spróbuj sparsować jako JSON mimo braku Content-Type
+            responseData = JSON.parse(responseText);
+            console.log('[API] Sparsowano odpowiedź tekstową jako JSON:', responseData);
+          } catch (jsonError) {
+            console.error('[API] Nie udało się sparsować odpowiedzi jako JSON:', jsonError);
+          }
+        }
+      } catch (error) {
+        console.error('[API] Błąd podczas przetwarzania odpowiedzi:', error);
+        responseText = await wooResponse.text();
+        console.log('[API] Odpowiedź tekstowa z WooCommerce (po błędzie):', responseText.substring(0, 200) + '...');
+      }
+
+      if (!wooResponse.ok) {
+        console.error(`[API] Błąd podczas dodawania do koszyka: ${wooResponse.status}`);
+        return NextResponse.json(
+          { 
+            error: 'Nie udało się dodać produktu do koszyka',
+            status: wooResponse.status,
+            statusText: wooResponse.statusText,
+            response: responseData || responseText?.substring(0, 200) || null
+          },
+          { status: 500 }
+        );
+      }
+
+      // Pobierz aktualny stan koszyka
+      const cartResponse = await fetch(wooCommerceUrl + '?wc-ajax=get_cart_totals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'Cookie': cookieHeader,
+          'Accept': 'application/json, text/javascript, */*; q=0.01',
+          'User-Agent': 'Mozilla/5.0 (compatible; FlavoAI/1.0)',
+          'Origin': 'https://smakosz.flavorinthejar.com',
+          'Referer': 'https://smakosz.flavorinthejar.com/',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'include'
+      });
+
+      const cartData = await cartResponse.json();
+
+      // Tworzymy odpowiedź w formacie WooCommerce
+      const response = NextResponse.json({
+        fragments: {
+          cart_count: cartData.cart_contents_count || 0,
+          cart_total: cartData.cart_total || '0.00 zł',
+          ...responseData
+        },
+        cart_hash: responseData?.cart_hash || '',
+        cart_quantity: cartData.cart_contents_count || 0
+      });
+
+      // Generujemy unikalny identyfikator sesji
+      const sessionId = crypto.randomUUID();
+      console.log('[API] Generowanie nowego ID sesji:', sessionId);
+      
+      // Dodajemy dynamiczne ciasteczko sessionid
+      response.headers.append('set-cookie', `sessionid=${sessionId}; SameSite=None; Secure`);
+
+      // Przekazujemy wszystkie ciasteczka z odpowiedzi WooCommerce do klienta
+      setCookieHeaders.forEach((cookieHeader: string) => {
+        // Modyfikujemy ciasteczka, aby były SameSite=None; Secure
+        if (!cookieHeader.includes('SameSite=None')) {
+          const modifiedCookie = cookieHeader.replace(/;?\s*$/, '; SameSite=None; Secure');
+          response.headers.append('set-cookie', modifiedCookie);
+          console.log('[API] Zmodyfikowane ciasteczko:', modifiedCookie);
+        } else {
+          response.headers.append('set-cookie', cookieHeader);
+        }
+      });
+
+      return response;
+    } catch (error: unknown) {
+      console.error('[API] Błąd podczas przetwarzania żądania add-to-cart:', error);
+      
+      // Sprawdź czy to błąd timeoutu
+      if (error instanceof Error && error.name === 'AbortError') {
+        return NextResponse.json(
+          { error: 'Timeout podczas łączenia z serwerem WooCommerce. Spróbuj ponownie później.', timeout: true },
+          { status: 504 }
+        );
+      }
+      
+      return NextResponse.json(
+        { error: 'Wystąpił błąd podczas przetwarzania żądania', details: String(error) },
         { status: 500 }
       );
     }
-
-    // Pobierz aktualny stan koszyka
-    const cartResponse = await fetch(wooCommerceUrl + '?wc-ajax=get_cart_totals', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'Cookie': cookieHeader,
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'User-Agent': 'Mozilla/5.0 (compatible; FlavoAI/1.0)',
-        'Origin': 'https://smakosz.flavorinthejar.com',
-        'Referer': 'https://smakosz.flavorinthejar.com/',
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      credentials: 'include'
-    });
-
-    const cartData = await cartResponse.json();
-
-    // Tworzymy odpowiedź w formacie WooCommerce
-    const response = NextResponse.json({
-      fragments: {
-        cart_count: cartData.cart_contents_count || 0,
-        cart_total: cartData.cart_total || '0.00 zł',
-        ...responseData
-      },
-      cart_hash: responseData?.cart_hash || '',
-      cart_quantity: cartData.cart_contents_count || 0
-    });
-
-    // Generujemy unikalny identyfikator sesji
-    const sessionId = crypto.randomUUID();
-    console.log('[API] Generowanie nowego ID sesji:', sessionId);
-    
-    // Dodajemy dynamiczne ciasteczko sessionid
-    response.headers.append('set-cookie', `sessionid=${sessionId}; SameSite=None; Secure`);
-
-    // Przekazujemy wszystkie ciasteczka z odpowiedzi WooCommerce do klienta
-    setCookieHeaders.forEach((cookieHeader: string) => {
-      response.headers.append('set-cookie', cookieHeader);
-    });
-
-    return response;
   } catch (error) {
     console.error('[API] Błąd podczas przetwarzania żądania add-to-cart:', error);
     return NextResponse.json(
