@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     console.log('[API] Przygotowane dane formularza:', wooFormData.toString());
     
     // Wykonaj żądanie POST do WooCommerce
-    const wooCommerceUrl = 'https://smakosz.flavorinthejar.com/';
+    const wooCommerceUrl = 'https://flavorinthejar.com/';
     const wooCommerceParams = new URLSearchParams({
       'add-to-cart': productId.toString(),
       'quantity': quantity.toString(),

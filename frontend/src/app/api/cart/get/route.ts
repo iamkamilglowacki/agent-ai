@@ -9,7 +9,7 @@ interface FetchError extends Error {
   message: string;
 }
 
-export async function GET() {
+export async function POST() {
   try {
     // Pobierz wszystkie ciasteczka
     const cookieStore = cookies();
@@ -19,8 +19,8 @@ export async function GET() {
     console.log('[API cart/get] Ciasteczka klienta:', allCookies.map(c => `${c.name}`));
 
     // Wykonaj żądanie do WooCommerce aby pobrać stan koszyka
-    const wooCommerceUrl = 'https://smakosz.flavorinthejar.com/';
-    console.log('[API cart/get] Wysyłanie żądania do:', wooCommerceUrl + '?wc-ajax=get_cart_totals');
+    const wooCommerceUrl = 'https://flavorinthejar.com/?wc-ajax=get_cart_totals';
+    console.log('[API cart/get] Wysyłanie żądania do:', wooCommerceUrl);
     
     // Ustaw timeout dla żądania
     const controller = new AbortController();
