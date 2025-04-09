@@ -175,11 +175,15 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
                 }
             };
 
-            // Ustaw timeout bezpieczeństwa na 5 sekund
+            // Zmiana timeoutu na 2 sekundy
             timeoutRef.current = setTimeout(() => {
-                console.log('Timeout bezpieczeństwa - resetowanie stanu przycisku');
-                resetButtonState();
-            }, 5000);
+                setLoading(false);
+                setIsAdded(true);
+                // Po 2 sekundach ukryj komunikat "Dodano!"
+                setTimeout(() => {
+                    setIsAdded(false);
+                }, 2000);
+            }, 2000);
 
             console.log('Wysyłanie wiadomości do parent:', message);
             window.parent.postMessage(message, 'https://flavorinthejar.com');
@@ -213,9 +217,9 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
                     disabled={loading || isAdded}
                     className={`ml-4 px-4 py-2 rounded-lg transition-all duration-200 ${
                         isAdded
-                            ? 'bg-green-100 text-green-700'
+                            ? 'bg-green-100 text-green-700 hover:bg-green-100'
                             : loading
-                                ? 'bg-gray-300 text-gray-700'
+                                ? 'bg-gray-100 text-gray-500'
                                 : 'bg-green-600 text-white hover:bg-green-700'
                     }`}
                 >
