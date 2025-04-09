@@ -208,20 +208,20 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
     };
 
     return (
-        <div className="flex flex-col space-y-2 overflow-y-auto min-h-0">
+        <div className="flex flex-col space-y-2 overflow-y-auto h-full max-h-screen">
             <div className="flex flex-col p-4 bg-white rounded-lg shadow-sm gap-4">
-                <div className="flex items-start space-x-4">
+                <div className="flex items-start space-x-4 overflow-y-auto">
                     {spice.image_url && (
                         <img 
                             src={spice.image_url} 
                             alt={spice.name}
-                            className="w-12 h-12 object-cover rounded-lg" 
+                            className="w-12 h-12 object-cover rounded-lg flex-shrink-0" 
                         />
                     )}
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 overflow-y-auto">
                         <div className="flex flex-col">
                             <h4 className="font-medium text-gray-900 text-sm">{spice.name}</h4>
-                            <span className="text-sm text-gray-600">{spice.description}</span>
+                            <span className="text-sm text-gray-600 break-words">{spice.description}</span>
                         </div>
                     </div>
                 </div>
