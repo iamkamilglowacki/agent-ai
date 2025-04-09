@@ -99,14 +99,27 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
 
     // Dodaj style do body przy montowaniu komponentu
     useEffect(() => {
-        // Zamiast ukrywać scrollbar, ustawiamy tylko wysokość
-        document.body.style.height = '100%';
-        document.documentElement.style.height = '100%';
+        // Ukrywamy scrollbar tylko na html i body, ale pozwalamy na scroll w komponencie
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+        
+        // Dodajemy style dla iframe
+        const style = document.createElement('style');
+        style.textContent = `
+            html, body {
+                height: auto !important;
+                min-height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+        `;
+        document.head.appendChild(style);
         
         return () => {
             // Przywracamy domyślne style przy odmontowaniu
-            document.body.style.height = '';
-            document.documentElement.style.height = '';
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
+            document.head.removeChild(style);
         };
     }, []);
 
@@ -195,9 +208,9 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
     };
 
     return (
-        <div className="flex flex-col space-y-2">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white rounded-lg shadow-sm gap-4">
-                <div className="flex items-start space-x-4 w-full sm:w-auto">
+        <div className="flex flex-col space-y-2 overflow-y-auto min-h-0">
+            <div className="flex flex-col p-4 bg-white rounded-lg shadow-sm gap-4">
+                <div className="flex items-start space-x-4">
                     {spice.image_url && (
                         <img 
                             src={spice.image_url} 
@@ -206,16 +219,17 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
                         />
                     )}
                     <div className="min-w-0 flex-1">
-                        <h4 className="font-medium text-gray-900 text-sm truncate">{spice.name}</h4>
-                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{spice.description}</p>
-                        <p className="text-green-600 font-medium mt-1 text-sm">{spice.price}</p>
+                        <div className="flex flex-col">
+                            <h4 className="font-medium text-gray-900 text-sm">{spice.name}</h4>
+                            <span className="text-sm text-gray-600">{spice.description}</span>
+                        </div>
                     </div>
                 </div>
                 <button
                     ref={buttonRef}
                     onClick={handleAddToCart}
                     disabled={loading || isAdded}
-                    className={`w-full sm:w-auto px-4 py-2 rounded-lg transition-all duration-200 text-sm whitespace-nowrap ${
+                    className={`w-full px-4 py-2 rounded-lg transition-all duration-200 text-sm ${
                         isAdded
                             ? 'bg-green-100 text-green-700 hover:bg-green-100'
                             : loading
@@ -223,7 +237,7 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
                                 : 'bg-green-600 text-white hover:bg-green-700'
                     }`}
                 >
-                    {loading ? 'Dodawanie...' : isAdded ? 'Dodano!' : 'Wrzuć do basket'}
+                    {loading ? 'Dodawanie...' : isAdded ? 'Dodano!' : `Do koszyka - ${spice.price}`}
                 </button>
             </div>
             
