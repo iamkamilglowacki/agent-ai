@@ -100,17 +100,25 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
     // Dodaj style do body przy montowaniu komponentu
     useEffect(() => {
         // Ukrywamy scrollbar tylko na html i body, ale pozwalamy na scroll w komponencie
-        document.documentElement.style.overflow = 'hidden';
-        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'auto';
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.height = '100%';
+        document.body.style.height = '100%';
         
         // Dodajemy style dla iframe
         const style = document.createElement('style');
         style.textContent = `
             html, body {
-                height: auto !important;
-                min-height: 100%;
+                height: 100% !important;
+                min-height: 100% !important;
                 margin: 0;
                 padding: 0;
+                overflow: auto !important;
+            }
+            #root {
+                height: 100%;
+                min-height: 100%;
+                overflow: auto;
             }
         `;
         document.head.appendChild(style);
@@ -119,6 +127,8 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
             // Przywracamy domyślne style przy odmontowaniu
             document.documentElement.style.overflow = '';
             document.body.style.overflow = '';
+            document.documentElement.style.height = '';
+            document.body.style.height = '';
             document.head.removeChild(style);
         };
     }, []);
@@ -208,9 +218,9 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
     };
 
     return (
-        <div className="flex flex-col space-y-2 overflow-y-auto h-full max-h-screen">
-            <div className="flex flex-col p-4 bg-white rounded-lg shadow-sm gap-4">
-                <div className="flex items-start space-x-4 overflow-y-auto">
+        <div className="flex flex-col space-y-2 overflow-y-auto h-screen">
+            <div className="flex flex-col p-4 bg-white rounded-lg shadow-sm gap-4 overflow-y-auto flex-1">
+                <div className="flex items-start space-x-4">
                     {spice.image_url && (
                         <img 
                             src={spice.image_url} 
@@ -218,10 +228,10 @@ export const SpiceRecommendation: React.FC<SpiceRecommendationProps> = ({ spice 
                             className="w-12 h-12 object-cover rounded-lg flex-shrink-0" 
                         />
                     )}
-                    <div className="min-w-0 flex-1 overflow-y-auto">
+                    <div className="min-w-0 flex-1">
                         <div className="flex flex-col">
                             <h4 className="font-medium text-gray-900 text-sm">{spice.name}</h4>
-                            <span className="text-sm text-gray-600 break-words">{spice.description}</span>
+                            <span className="text-sm text-gray-600 break-words whitespace-pre-wrap">{spice.description}</span>
                         </div>
                     </div>
                 </div>
